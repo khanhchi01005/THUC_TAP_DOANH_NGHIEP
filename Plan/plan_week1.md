@@ -4,10 +4,10 @@
 
 ## 1. Storage Fundamentals — bắt buộc**
 **Storage là gì?**
- - [ ] Block Storage
- - [ ] File Storage
- - [ ] Object Storage
- - [ ] So sánh Block / File / Object: use case, performance, interface
+ - [x] Block Storage
+ - [x] File Storage
+ - [x] Object Storage
+ - [x] So sánh Block / File / Object: use case, performance, interface
 
 **Các thành phần cơ bản của Storage**
  - [ ] HDD / SSD / NVMe
