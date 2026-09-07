@@ -171,6 +171,24 @@ nhằm cung cấp hệ thống giám sát và giao diện bổ sung cho các h�
 
 
 - **Network / ToR failure:** Sự cố này khiến toàn bộ các Node trong một Rack bị mất kết nối đồng thời với phần còn lại của cụm, cắt đứt hoàn bộ giao tiếp giữa các OSD, Monitor và Client.
+    - Tác động: 
+        - Hàng loạt OSD rơi vào trạng thái Down:  Tất cả OSD thuộc các Node nằm dưới switch ToR đó sẽ rớt kết nối Heartbeat.Cụm Monitor lập tức đánh dấu danh sách OSD này ở trạng thái Down/In
+        - Nguy cơ mất Quorum Monitor: Nếu các nút MON (Monitor) được xếp nằm chung trong Rack bị hỏng ToR, cụm Ceph có thể bị mất số đông (Quorum) nếu số MON còn sống không đạt quá bán. Khi mất Quorum MON, toàn bộ cụm Ceph sẽ lập tức đóng băng (Block I/O) để bảo vệ tính vẹn toàn dữ liệu
+        - Hiện tượng nghẽn mạng do Backfill: Nếu ToR chết lâu hơn thời gian mon_osd_down_out_interval (mặc định 10 phút), Ceph sẽ chuyển tất cả OSD trong Rack bị hỏng thành Out và kích hoạt Backfill / Self-healing. Toàn bộ dữ liệu của Rack hỏng sẽ được nhân bản lại trên các Rack khác, làm nghẽn băng thông của các switch ToR còn lại.
+    - Giải pháp: 
+        - Để sống sót qua thảm họa ToR Failure, kiến trúc Ceph bắt buộc phải cấu hình CRUSH Map với tham số quy định vùng chịu lỗi ở cấp Rack: failure-domain = rack
+        - Kiến trúc LACP / Bonding: Mỗi Server trong Rack cắm 2 dây mạng về 2 Switch ToR độc lập (Stacking/MLAG) chạy song song theo chế độ LACP (802.3ad). Nếu 1 switch ToR chết, switch còn lại lập tức gánh toàn bộ traffic mà không rơi Node nào.
+        - Phân bổ MON lẻ trên các Rack
+
+
+
+- **MON quorum loss:**  xảy ra khi số lượng thành phần Monitor (MON) hoạt động trong cụm rơi xuống dưới mức tối thiểu cần thiết để duy trì hoạt động. Khi mất quorum, toàn bộ cụm Ceph sẽ bị đóng băng (freeze). 
+    - Tác động: Chặn toàn bộ I/O của Client: Các dịch vụ như RBD (Block Device), CephFS, hay RGW (Object Storage) không thể xác thực trạng thái OSD. Toàn bộ ứng dụng (Virtual Machines, Kubernetes Pods...) bị treo I/O (I/O Pause/Hang).
+    - Nguyên nhân: Mất kết nối mạng hàng loạt, Sập nhiều Node vật lý cùng lúc: Mất nguồn điện datacenter, cháy mainboard làm dừng đồng thời 2/3 hoặc 3/5 nút MON, Bất đồng bộ thời gian: Lệnh NTP/Chrony bị dừng, thời gian giữa các nút MON lệch nhau quá ngưỡng cho phép (mặc định 0.05s - mon_clock_drift_allowed), khiến Paxos từ chối đồng bộ.
+    - Hướng xử lý:
+        - Đồng bộ lại thời gian giữa các node bằng Chrony hoặc NTP.
+        - Dọn dẹp ổ đĩa nếu phân vùng dữ liệu của MON bị đầy.
+        - Cứu dữ liệu bằng cách ép buộc Quorum: Nếu các node MON khác đã chết hoàn toàn và không thể khôi phục ngay, bạn phải ép buộc MON duy nhất còn sống tạo thành một quorum mới bằng cách loại bỏ các MON đã chết khỏi bản đồ. Sau khi cụm hoạt động trở lại với 1 MON, cần tiến hành bổ sung thêm các node MON mới để đảm bảo tính sẵn sàng cao (High Availability)
 
 - **PG degraded | unclean | inconsistent:**
     - **PG degraded:** Một PG ở trạng thái degraded khi số lượng bản sao (replicas) thực tế đang sống ít hơn số lượng bản sao được cấu hình cho Pool đó (ví dụ cấu hình RF = 3 nhưng hiện chỉ có 2 bản sao khả dụng).
