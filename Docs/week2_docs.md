@@ -90,21 +90,23 @@ nhằm cung cấp hệ thống giám sát và giao diện bổ sung cho các h�
         - **CRUSH(PG_ID, CRUSH Map, CRUSH Rule) -> [OSD Primary, OSD Secondary 1, OSD Secondary 2]**
 
 ---
-
-## 2. Các mô hình lỗi phổ biến trong Ceph 
-
-- **Lỗi tiến trình OSD:** Tiến trình ceph-osd bị dừng, crash hoặc ngưng phản hồi do tràn bộ nhớ (OOM), lỗi phần mềm hoặc treo thread I/O. Dấu hiệu: ceph health báo 1 osd down, OSD chuyển sang trạng thái down/in hoặc down/ou.
-    - down + in: Tiến trình OSD bị dừng/crash, nhưng Ceph chưa chuyển dữ liệu đi đâu cả. Ceph sẽ đợi một khoảng thời gian (mặc định 600 giây - mon_osd_down_out_interval) để xem OSD có tự khôi phục không (ví dụ trường hợp máy reboot).
-    - down + out: ụm Ceph lập tức kích hoạt tiến trình Self-healing (Tự chữa lành): Lấy các bản sao dữ liệu của OSD hỏng từ các OSD còn sống để nhân bản sang vị trí mới, đưa cụm về lại trạng thái an toàn active+clean.
-
----
-
-## 3. Các mô hình lỗi phổ biến trong hệ thống phân tán 
+## 2. Các mô hình lỗi phổ biến trong hệ thống phân tán 
 - **Crash-stop:** xảy ra khi một hoặc nhiều daemon OSD trong Ceph đột ngột bị chấm dứt tiến trình (terminate/kill) do gặp lỗi không thể phục hồi ở cấp độ phần cứng, phần mềm, bộ nhớ hoặc hệ điều hành.
+    - Nguyên nhân:
+        - Lỗi phần cứng: Mất điện đột ngột, lỗi RAM (Kernel Panic), hỏng CPU hoặc chập cháy bo mạch
+        - Tác động từ Hệ điều hành (OS): Trình quản lý bộ nhớ của Linux kích hoạt OOM Killer (Out Of Memory) tự động SIGKILL (kill -9) ngay lập tức tiến trình chiếm quá nhiều RAM.
+        - Lỗi ứng dụng nghiêm trọng (Fatal Exception): Tiến trình gặp các lỗi bộ nhớ nghiêm trọng như Segmentation Fault, Stack Overflow, hoặc unhandled exception ở tầng nhân khiến process bị ngắt ngang tức thì.
+    - Giải pháp:
+        - Phát hiện qua Heartbeat & Timeout:Các nút còn lại liên tục gửi tín hiệu nhịp tim (Heartbeat). Nếu quá thời gian phản hồi (Election Timeout), hệ thống xác định nút đó đã Crash Stop.
+        - Kích hoạt Bầu chọn & Failover: Nếu nút bị crash là Leader/Master, các nút còn lại sẽ tổ chức bầu chọn Leader mới dựa trên cơ chế Quorum (Số đông).
+        - Chuyển giao tải: Các công việc, partition hoặc replica do nút cũ nắm giữ sẽ được phân phối lại cho các nút lành lặn trong cụm.
 
-- **Crash-recovery:** 
+- **Crash-recovery:**  là quá trình một nút (node) hoặc toàn bộ hệ thống khôi phục lại trạng thái nhất quán và tiếp tục hoạt động sau khi bị sập (crash) hoàn toàn và mất đi toàn bộ dữ liệu trên bộ nhớ tạm (RAM)
+    - Giải pháp: 
+        - Ghi nhật ký bền vững (Durable Logging / Write-Ahead Log - WAL): Trước khi thực hiện thay đổi dữ liệu trên RAM, hệ thống ghi lại lịch sử thao tác vào nhật ký lưu trên ổ đĩa. Khi phục hồi, hệ thống đọc lại file log này để tái hiện (redo) hoặc hoàn tác (undo) giao dịch nhằm đảm bảo không mất dữ liệu đã xác nhận
+        - Bầu lại nhóm và Đồng thuận : Sử dụng các thuật toán như Raft hoặc Paxos để xác định xem nút vừa hồi phục có còn đủ điều kiện làm lãnh đạo hay phải đồng bộ lại dữ liệu từ các nút khác trước khi phục vụ người dùng.
 
-- **Network partion/ Split-brain:** Là tình trạng mạng truyền thông bị gián đoạn vật lý hoặc logic, làm cho một tập hợp các nút (nodes) trong cụm bị chia tách thành 2 hoặc nhiều phân vùng riêng biệt (sub-clusters). Điểm đặc biệt:
+- **Network partion** Là tình trạng mạng truyền thông bị gián đoạn vật lý hoặc logic, làm cho một tập hợp các nút (nodes) trong cụm bị chia tách thành 2 hoặc nhiều phân vùng riêng biệt (sub-clusters). Điểm đặc biệt:
     - Các nút trong cùng một phân vùng vẫn có thể liên lạc với nhau bình thường.
     - Các nút thuộc hai phân vùng khác nhau hoàn toàn mất liên lạc.
     - Tất cả các nút đều đang sống và hoạt động (không bị crash), nhưng chúng không thể đàm thoại với nhau.
@@ -112,4 +114,91 @@ nhằm cung cấp hệ thống giám sát và giao diện bổ sung cho các h�
     - Hệ quả & Đánh đổi định luật CAP: Theo Định lý CAP (Brewer's Theorem), mạng chập chờn hay Network Partition là điều không thể tránh khỏi trong thực tế. Khi xảy ra Network Partition, hệ thống phân tán bắt buộc phải đánh đổi giữa 2 lựa chọn:
         - Hệ thống CP (Consistent): Ưu tiên Tính nhất quán dữ liệu, Phân vùng nào không có đủ đa số nút (không đạt Quorum) sẽ tự đóng băng I/O hoặc từ chối yêu cầu từ client.
         - Hệ thống AP (Availability): Ưu tiên Tính sẵn sàng (Availability). cả 2 phân vùng đều tiếp tục ghi/đọc độc lập, hệ thống chấp nhận dữ liệu bị bất đồng bộ tạm thời và chấp nhận quy trình hợp nhất dữ liệu phức tạp về sau
-    - **Split-brain:** 
+- **Split-brain:** Do mất kênh liên lạc chung, mỗi phân đoạn không thể nhận biết trạng thái của phân đoạn còn lại. Kết quả là cả hai bên đều tự coi mình là phân đoạn sống duy nhất và đồng thời tự bầu chọn lên làm Leader (Master) để tiếp tục phục vụ ứng dụng.
+    - Nguyên nhân: Do network partition, tín hiệu kiểm tra trạng thái hoạt động giữa các máy chủ bị gián đoạn
+    - Hệ quả: 
+        - Xung đột và hỏng dữ liệu: Cả 2 Master đều nhận và ghi các dữ liệu khác nhau từ khách hàng. Khi mạng khôi phục, hai tập dữ liệu này bị lệch chuẩn nghiêm trọng và không thể tự động gộp lại.
+        - Mất tính nhất quán: Hệ thống mất đi nguồn sự thật duy nhất (single source of truth), dẫn đến lỗi ứng dụng hoặc mất dữ liệu nghiêm trọng
+    - Giải pháp:
+        - Quorum: Quy định một phân đoạn chỉ được phép hoạt động hoặc bầu Leader nếu nó nắm giữ quá bán tổng số nút: Quorum >= [N/2] + 1. Phân đoạn nằm ở phe thiểu số (Minority) sẽ tự động chuyển sang chế độ Read-Only hoặc tự ngắt dịch vụ để bảo vệ dữ liệu. 
+        - Cơ chế FENCING/ STONITH: Khi một nút phát hiện nguy cơ Split-Brain, nó sẽ chủ động gửi tín hiệu tắt nguồn phần cứng hoặc cô lập cổng mạng của nút nghi vấn thông qua giao diện quản trị từ xa (IPMI/iLO) trước khi nhận quyền Master.
+
+- **Silent Data Coruption/ Bit Rot** là hiện tượng dữ liệu bị thay đổi, biến dạng hoặc hỏng hóc trên thiết bị lưu trữ mà hệ điều hành, hệ thống tệp (file system) hoặc phần cứng không phát hiện hay báo lỗi.
+    - Nguyên nhân: 
+        - Lỗi môi trường vạt lý lưu trữ: HDD: Sự suy giảm từ tính (magnetic decay) trên các đĩa từ theo thời gian, hoặc hiện tượng ghi đè chéo (cross-talk) giữa các rãnh ghi mật độ cao (SMR/PMR). SSD / Flash Memory: Rò rỉ điện tích (charge leakage) trong các ô nhớ NAND Flash khi không được cấp điện trong thời gian dài, hoặc hiện tượng mòn ô nhớ (wear-out) do chu kỳ Ghi/Xóa (P/E cycles).
+        - Lỗi Firmware / Driver: Bug trong Controller của ổ cứng, RAID controller, hay SAS/SATA bus dẫn đến việc ghi sai dữ liệu hoặc ghi sai vị trí block (phantom writes, misdirected writes) mà không báo lỗi
+    - Hệ quả: 
+        - Hỏng tệp tin vĩnh viễn: Các định dạng media (ảnh JPEG, video MP4) bị nhiễu sọc hoặc không thể mở; các tệp nén (ZIP, TAR) bị lỗi checksum và không thể giải nén.
+        - Sai lệch dữ liệu doanh nghiệp: Dữ liệu trong cơ sở dữ liệu (Database) bị thay đổi giá trị số học âm thầm, làm sai lệch báo cáo tài chính hoặc thông tin giao dịch mà hệ thống không hay biết.
+        - Sao lưu dữ liệu hỏng (Corrupted Backups): Do hệ thống không nhận biết dữ liệu nguồn đã hỏng, tiến trình backup tiếp tục sao lưu phiên bản hỏng này và ghi đè lên các bản backup sạch trước đó
+    - Giải pháp: 
+        - Hệ thống tệp tự sửa lỗi: Các File System tiên tiến như ZFS hoặc Btrfs sử dụng cơ chế End-to-End Checksumming.Khi đọc dữ liệu, hệ thống tự tính lại checksum. Nếu phát hiện sai lệch (SDC), nó sẽ tự động lấy bản sao lành lặn từ cơ chế Mirroring/RAID-Z để phục hồi (Self-healing) và ghi đè lại block bị hỏng.
+        - Tiến trình Scrubbing: Quá trình chạy ngầm định kỳ quét toàn bộ các block dữ liệu trên ổ đĩa, kiểm tra tính vẹn toàn checksum nhằm phát hiện và chủ động sửa lỗi Bit Rot trước khi ứng dụng đọc tới.
+
+---
+## 3. Các mô hình lỗi phổ biến trong Ceph 
+
+- **Lỗi tiến trình OSD:** Tiến trình ceph-osd bị dừng, crash hoặc ngưng phản hồi do tràn bộ nhớ (OOM), lỗi phần mềm hoặc treo thread I/O. Dấu hiệu: ceph health báo 1 osd down, OSD chuyển sang trạng thái down/in hoặc down/out.
+    - down + in: Tiến trình OSD bị dừng/crash, nhưng Ceph chưa chuyển dữ liệu đi đâu cả. Ceph sẽ đợi một khoảng thời gian (mặc định 600 giây - mon_osd_down_out_interval) để xem OSD có tự khôi phục không (ví dụ trường hợp máy reboot).
+    - down + out: Cụm Ceph lập tức kích hoạt tiến trình Self-healing (Tự chữa lành): Lấy các bản sao dữ liệu của OSD hỏng từ các OSD còn sống để nhân bản sang vị trí mới, đưa cụm về lại trạng thái an toàn active+clean.
+    - Nguyên nhân phổ biến:
+        - Lỗi phần cứng: Ổ cứng chứa dữ liệu OSD bị hỏng, bad sector, hoặc quá nhiệt khiến kernel ngắt kết nối I/O
+        - Tiến trình Crash/OOM: Tiến trình ceph-osd bị crash do lỗi phần mềm (bug) hoặc bị hệ thống Linux kill do thiếu bộ nhớ RAM
+        - Sự cố mạng: Mất kết nối mạng công cộng hoặc riêng tư (cluster network) giữa các node, làm gián đoạn gói tin heartbeat.
+        - Hiện tượng Flapping OSD: OSD liên tục ngắt kết nối rồi kết nối lại trong thời gian ngắn, gây biến động nặng cho cụm do Ceph liên tục phải tính toán lại CRUSH Map.
+    - Cách khắc phục cơ bản:
+        - Kiểm tra trạng thái cụm: Chạy lệnh ceph health detail hoặc ceph osd tree để định danh chính xác OSD nào đang gặp sự cố.
+        - Kiểm tra log hệ thống và OSD: Xem tệp log tại /var/log/ceph/ hoặc kiểm tra thông điệp kernel qua dmesg -T để phát hiện lỗi ổ cứng hay phân vùng
+            - OSD bị ngắt tạm thời (thử khởi động lại)
+            - Tránh hiện tượng Flapping OSD khi đang chẩn đoán: Tạm thời ngắt cơ chế tự động đánh dấu Down/Out để kiểm tra mạng/ổ đĩa
+            - Nếu ổ đĩa OSD hỏng hoàn toàn Nếu đĩa hỏng vật lý, cần khai tử OSD cũ để Ceph hoàn tất xả dữ liệu (backfill), sau đó thay đĩa mới
+
+- **Lỗi Node:** xảy ra khi một máy chủ (node) vật lý hoặc ảo trong cụm lưu trữ ngừng hoạt động, mất kết nối mạng hoặc sập nguồn, khiến toàn bộ các tiến trình OSD (Object Storage Device), MON (Monitor) hay MGR (Manager) trên node đó không thể truy cập được.
+    - Hàng loạt OSDs bị đánh dấu Down: Tất cả OSD thuộc Node đó ngay lập tức ngừng gửi Heartbeat. Cụm Monitor (MON) chuyển trạng thái toàn bộ OSD trên Node đó thành Down/In.
+    - Các Placement Groups (PG) bị ảnh hưởng: Các PG có chứa bản sao (replica) nằm trên Node hỏng sẽ chuyển sang trạng thái degraded (giảm số lượng bản sao) hoặc undersized. Tuy nhiên, nhờ quy tắc bầu vị trí dữ liệu CRUSH Rule (mặc định phân bổ bản sao nằm trên các Node khác nhau - failure-domain = host), dữ liệu vẫn đọc/ghi bình thường từ các bản sao còn sống trên các Node khác.
+    - Mất daemon quản lý (MON / MGR / MDS): Nếu Node bị sập chứa MON hoặc MGR, cụm sẽ kích hoạt cơ chế Bầu chọn (Election) để chuyển vai trò sang các Node lành lặn còn lại (miễn là hệ thống còn đủ Quorum số đông MON: >= [N/2] + 1).
+    - Quy tắc quan trọng:
+        - Quy tắc failure-domain: Luôn đảm bảo CRUSH Map được cấu hình failure-domain = host (mặc định) hoặc rack. Tránh cấu hình failure-domain = osd vì nếu rớt 1 Node chứa nhiều OSD, dữ liệu có nguy cơ bị mất vĩnh viễn (Data Loss).
+        - Quy tắc số lượng Node tối thiểu: Với cơ chế Replication (RF=3): Cần tối thiểu 3 Node.
+        - Phân bổ MON hợp lý: Luôn triển khai số lượng MON là số lẻ (3, 5) trên các Node vật lý độc lập nhau.
+
+- **Lỗi Disk:** xảy ra khi ổ cứng chứa Ceph OSD (Object Storage Daemon) gặp sự cố phần cứng hoặc phần mềm khiến tiến trình OSD không thể đọc/ghi dữ liệu
+    - Cơ chế xử lý tự động của Ceph:
+        - Đánh dấu Down: Sau khoảng 20 giây không có tín hiệu phản hồi, Ceph đánh dấu OSD đó ở trạng thái down. Các Placement Group (PG) trên đĩa đó chuyển sang 'degraded'. Client vẫn đọc/ghi bình thường nhờ các bản sao trên đĩa khác.
+        - Hết thời gian chờ mặc định: Ceph đánh dấu OSD là out khỏi bản đồ CRUSH Map. Cụm bắt đầu tái định tuyến và khôi phục (recovering) bản sao dữ liệu (PG - Placement Group) sang các OSD lành lặn khác để đảm bảo an toàn dữ liệu
+        - Kiểm tra trạng thái cụm: Chạy lệnh ceph -s hoặc ceph health detail để xác định OSD nào đang gặp sự cố hoặc chậm.
+        - Thay thế phần cứng: Tiến hành gỡ bỏ OSD cũ (ceph osd out, dừng dịch vụ, xóa khỏi Crush map), thay thế ổ cứng vật lý mới và khởi tạo lại OSD (ceph osd crush remove, tạo OSD mới)
+
+
+- **Network / ToR failure:** Sự cố này khiến toàn bộ các Node trong một Rack bị mất kết nối đồng thời với phần còn lại của cụm, cắt đứt hoàn bộ giao tiếp giữa các OSD, Monitor và Client.
+
+- **PG degraded | unclean | inconsistent:**
+    - **PG degraded:** Một PG ở trạng thái degraded khi số lượng bản sao (replicas) thực tế đang sống ít hơn số lượng bản sao được cấu hình cho Pool đó (ví dụ cấu hình RF = 3 nhưng hiện chỉ có 2 bản sao khả dụng).
+        - Nguyên nhân: Một hoặc nhiều OSD chứa bản sao của PG đó bị hỏng (Down), ngắt mạng hoặc đang reboot.Cụm Ceph đang trong quá trình Backfill/Recovery sau khi thay ổ đĩa hoặc thêm/bớt Node.
+        - Client VẪN ĐỌC/GHI ĐƯỢC bình thường thông qua các bản sao còn sống (như OSD 1, OSD 2). Dịch vụ không bị gián đoạn.
+    - **PG unclean:** không phải là một trạng thái độc lập, mà là thuật ngữ tổng quát đại diện cho bất kỳ PG nào chưa đạt trạng thái hoàn hảo active+clean. Thực tế, degraded là một tập con của trạng thái unclean
+        - Tùy thuộc vào trạng thái con đi kèm. Nếu chỉ là active+degraded hay active+recovering, I/O vẫn chạy bình thường. Nếu ở trạng thái peering hoặc stale, I/O đối với các object thuộc PG đó có thể bị block tạm thời
+    - **PG inconsistent:** khi tiến trình kiểm tra vẹn toàn dữ liệu (Scrubbing / Deep Scrubbing) phát hiện sự sai lệch về nội dung hoặc Metadata giữa các bản sao của cùng một Object nằm trên các OSD khác nhau.
+        - Nguyên nhân: 
+            - Bit Rot / Silent Data Corruption: Ổ đĩa bị lỗi lật bit âm thầm mà phần cứng không báo error.
+            - Lỗi ngắt điện đột ngột hoặc crash đĩa đúng thời điểm OSD đang ghi dữ liệu, khiến một OSD ghi dở dang.
+        - Ceph sẽ chủ động chặn thao tác Đọc/Ghi đối với Object bị hỏng đó để ngăn ngừa dữ liệu sai lệch lan rộng sang ứng dụng.
+        - Xác định chính xác Object và OSD bị lỗi, Yêu cầu Ceph so sánh các bản sao, lấy bản sao chứa số đông Checksum đúng để ghi đè lên bản sao bị hỏng
+
+
+ 
+- **Recovery / Backfill / Rebalance:** là ba cơ chế di chuyển dữ liệu tự động, giúp cụm tự khôi phục tính an toàn của dữ liệu sau sự cố phần cứng, hoặc tự động phân bổ lại tài nguyên lưu trữ khi quy mô cụm thay đổi. 
+    - **Recovery:** xảy ra khi một hoặc nhiều OSD (Object Storage Daemon) gặp sự cố tạm thời hoặc bị mất dữ liệu một phần, và Ceph cần đưa các PG (Placement Group) về trạng thái khỏe mạnh (active+clean) bằng cách sử dụng các bản ghi lịch sử (PG logs)
+        - Cơ chế: Khi một OSD bị sập và hoạt động trở lại, Ceph sẽ đối chiếu nhật ký (logs) giữa OSD đó với các OSD bản sao khác để xác định chính xác những Object nào bị thiếu hoặc sai lệch phiên bản. Nó chỉ sao chép đúng những Object bị thay đổi trong thời gian OSD đó ngoại tuyến
+        - Đặc điểm: Tốc độ xử lý rất nhanh vì chỉ truyền tải phần dữ liệu chênh lệch, không cần quét toàn bộ ổ đĩa.
+    - **Backfill:** xảy ra khi Ceph cần sao chép toàn bộ dữ liệu của một PG sang một OSD mới. Hiện tượng này xuất hiện khi một OSD bị hỏng hoàn toàn (bị xóa khỏi cụm) hoặc một OSD mới trống hoàn toàn được thêm vào
+        - Cơ chế: Khác với Recovery sử dụng PG logs, Backfill được kích hoạt khi lượng dữ liệu sai lệch quá lớn vượt quá khả năng lưu trữ của PG log, hoặc khi OSD đích hoàn toàn chưa có dữ liệu. Ceph sẽ quét toàn bộ không gian tên của PG và sao chép tuyến tính từng Object từ OSD nguồn sang OSD đích
+        - Đặc điểm: Tốn rất nhiều băng thông mạng và tài nguyên I/O của ổ đĩa. Trong quá trình Backfill, trạng thái PG thường hiển thị là backfilling
+    - **Rebalancing:** là quá trình di chuyển các PG giữa các OSD lành lặn để đảm bảo dung lượng lưu trữ được phân bổ đều trên toàn bộ các đĩa trong cụm.
+        - Cơ chế: Hiện tượng này xảy ra khi thêm OSD mới vào cụm. Thuật toán CRUSH sẽ tính toán lại vị trí tối ưu mới cho các PG. Kết quả là một số PG sẽ được di chuyển từ các OSD cũ sang OSD mới.
+        - Cơ chế: Hiện tượng này xảy ra khi bạn thêm OSD mới vào cụm hoặc thay đổi trọng số (CRUSH weight) của các OSD hiện tại. Thuật toán CRUSH sẽ tính toán lại vị trí tối ưu mới cho các PG. Kết quả là một số PG sẽ được di chuyển từ các OSD cũ sang OSD mới.
+    - Khi cụm Ceph rơi vào các trạng thái này (đặc biệt là Backfill và Rebalance), hiệu năng I/O của khách hàng (Client) có thể bị giảm do nghẽn mạng nội bộ (Cluster Network) và nghẽn ổ đĩa.Có thể kiểm soát tốc độ của các tiến trình này thông qua các tham số cấu hình như:
+        - osd_max_backfills: Số lượng tiến trình backfill tối đa được phép chạy đồng thời trên một OSD.
+        - osd_recovery_max_active: giới hạn số lượng thao tác recovery tối đa đồng thời trên mỗi OSD
+---
+
