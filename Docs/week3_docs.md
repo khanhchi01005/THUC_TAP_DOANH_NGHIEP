@@ -165,10 +165,10 @@
 | **Nhóm mô hình** | **Mô hình chi tiết** | **Trạng thái dự phòng / Vận hành** | **Luồng Traffic (Đọc/Ghi)** | **RTO** | **RPO** | **Kỹ thuật đồng bộ cốt lõi** | **Kịch bản áp dụng thực tế** |
 |---|---|---|---|---|---|---|---|
 | **Active - Passive** *(Có Standby)* | **1.1 Hot Standby** *(Dự phòng nóng)* | Standby bật **100% công suất** (Phần cứng, App, DB chạy sẵn nhưng không nhận traffic). | 100% Traffic đi vào Primary Site. Secondary đứng chờ Failover. | ≈ 0 *(Vài giây – < 1 phút)* | = 0 *(hoặc tiệm cận 0)* | • Synchronous Replication<br>• Log-based Physical Replication *(PostgreSQL Streaming, MySQL Group Rep, Oracle Data Guard)* | • Core Banking, Thanh toán thẻ, Ví điện tử.<br>• DB cốt lõi yêu cầu **Zero Data Loss** tuyệt đối, ứng dụng chưa xử lý được xung đột 2 chiều.<br>• Yêu cầu khoảng cách < 100 km. |
-| **Active - Passive** *(Có Standby)* | **1.2 Warm Standby** *(Pilot Light)* | Standby bật sẵn Core/DB (App/Web ở dạng Image/Template hoặc scale-down). | 100% Traffic đi vào Primary Site. | Vài phút – vài chục phút *(Cần time Auto-scale / bật App)* | Vài giây – vài phút | • Asynchronous Log-based Replication<br>• Ceph RBD Mirroring<br>• Ceph RGW Multi-site *(1 chiều)* | • ERP, CRM, E-commerce quy mô vừa & lớn triển khai Disaster Recovery Cross-Region *(HN → HCM, AWS → On-prem).*<br>• Tối ưu chi phí hạ tầng. |
-| **Active - Passive** *(Có Standby)* | **1.3 Cold Standby** *(Dự phòng lạnh)* | Standby **tắt hoàn toàn** (Hạ tầng trống, không có máy chủ chạy App). | 100% Traffic đi vào Primary Site. | Vài giờ – vài ngày *(Dựng lại hạ tầng & restore data)* | Vài giờ – 24 giờ *(Mất data từ bản backup gần nhất)* | • Snapshot-based Replication *(Storage/VM Snapshots)*<br>• Scheduled DB Backups *(Dump/RMAN)* | • Báo cáo nội bộ, phần mềm kế toán, chấm công.<br>• Website thông tin tĩnh, môi trường Staging / Dev / Test. |
-| **Active - Active** *(Không Standby)* | **2.1 Active - Active Tầng App & Read-Only DB** *(Hybrid)* | Không có Standby. Tầng App Active toàn bộ; DB có 1 Master Write & các Read Replicas. | • **Read:** Chia tải 50/50 qua GSLB/Anycast IP.<br>• **Write:** Tập trung về 1 Master duy nhất. | • **Read:** ≈ 0<br>• **Write:** Vài giây *(Khi Master Failover)* | ≈ 0 *(Trễ vài ms sync log)* | • Asynchronous Log Replication *(Master → Read Replicas)*<br>• GSLB / Anycast IP chia tải App | • Trang tin tức, Báo điện tử, Mạng xã hội, Netflix, YouTube.<br>• Phù hợp hệ thống có **lượng truy cập Đọc (Read) chiếm 90–95%**. |
-| **Active - Active** *(Không Standby)* | **2.2 Active - Active Toàn Phần** *(Multi-Master)* | Không có Standby. Tất cả các Site/Node đều xử lý App, Read và Write đồng thời tại chỗ. | Cả **Read & Write** được chia tải đều sang các Site qua Load Balancer (GSLB/DNS). | ≈ 0 *(Không gián đoạn do traffic đã chạy đều)* | = 0 *(với Sync)* hoặc tiệm cận 0 *(với Async + Phân xử)* | • Bi-directional / Multi-Master Replication<br>• Ceph RGW Multi-site *(2 chiều)*<br>• Data Sharding / Partitioning<br>• Conflict Resolution *(CRDTs, LWW, Vector Clocks)* | • Sàn Thương mại điện tử toàn cầu.<br>• Hệ thống Chat / Messaging *(Messenger, Telegram).*<br>• Hạ tầng Cloud phân tán đa Region. |
+| **Active - Passive** *(Có Standby)* | **1.2 Warm Standby** *(Pilot Light)* | Standby bật sẵn Core/DB (App/Web ở dạng Image/Template hoặc scale-down). | 100% Traffic đi vào Primary Site. | Vài phút – vài chục phút *(Cần time Auto-scale / bật App)* | Vài giây – vài phút | • Asynchronous Log-based Replication | • ERP, CRM, E-commerce quy mô vừa & lớn triển khai Disaster Recovery Cross-Region *(HN → HCM, AWS → On-prem).*<br>• Tối ưu chi phí hạ tầng. |
+| **Active - Passive** *(Có Standby)* | **1.3 Cold Standby** *(Dự phòng lạnh)* | Standby **tắt hoàn toàn** (Hạ tầng trống, không có máy chủ chạy App). | 100% Traffic đi vào Primary Site. | Vài giờ – vài ngày *(Dựng lại hạ tầng & restore data)* | Vài giờ – 24 giờ *(Mất data từ bản backup gần nhất)* | • Snapshot-based Replication  | • Báo cáo nội bộ, phần mềm kế toán, chấm công.<br>• Website thông tin tĩnh, môi trường Staging / Dev / Test. |
+| **Active - Active** *(Không Standby)* | **2.1 Active - Active Tầng App & Read-Only DB** *(Hybrid)* | Không có Standby. Tầng App Active toàn bộ; DB có 1 Master Write & các Read Replicas. | • **Read:** Chia tải 50/50 qua GSLB/Anycast IP.<br>• **Write:** Tập trung về 1 Master duy nhất. | • **Read:** ≈ 0<br>• **Write:** Vài giây *(Khi Master Failover)* | ≈ 0 *(Trễ vài ms sync log)* | • Asynchronous Log Replication *(Master → Read Replicas)* | • Trang tin tức, Báo điện tử, Mạng xã hội, Netflix, YouTube.<br>• Phù hợp hệ thống có **lượng truy cập Đọc (Read) chiếm 90–95%**. |
+| **Active - Active** *(Không Standby)* | **2.2 Active - Active Toàn Phần** *(Multi-Master)* | Không có Standby. Tất cả các Site/Node đều xử lý App, Read và Write đồng thời tại chỗ. | Cả **Read & Write** được chia tải đều sang các Site qua Load Balancer (GSLB/DNS). | ≈ 0 *(Không gián đoạn do traffic đã chạy đều)* | = 0 *(với Sync)* hoặc tiệm cận 0 *(với Async + Phân xử)* | • Bi-directional / Multi-Master Replication<br>• Ceph RGW Multi-site *(2 chiều)*<br>• Data Sharding / Partitioning<br> | • Sàn Thương mại điện tử toàn cầu.<br>• Hệ thống Chat / Messaging *(Messenger, Telegram).*<br>• Hạ tầng Cloud phân tán đa Region. |
 
 
 ---
@@ -185,7 +185,7 @@
         - Pool Mode: Tất cả các đĩa ảo (RBD Images) được tạo mới bên trong Pool đó sẽ tự động được Daemon phát hiện và mirror.
         - Image Mode: Chỉ những đĩa ảo cụ thể được chỉ định thủ công mới được mirror (giúp tối ưu đường truyền cho các đĩa quan trọng).
 
-- **Hai chế độ RBD Minorring:**
+- **Hai cơ chế RBD Minorring:**
     - **Journal-based Minorring:** 
         - Cơ chế: Sử dụng tính năng journaling của RBD. Mỗi thao tác ghi (Write I/O) vào RBD Image sẽ được ghi đồng thời vào một In-memory/On-disk Journal log theo thứ tự thời gian. rbd-mirror daemon đọc log này và replay (phát lại) tại cụm Secondary
         - Mode: Asynchronous
@@ -208,11 +208,17 @@
         - Cách giải quyết:
             - Nếu dung lượng Journal log vượt quá giới hạn cấu hình (ví dụ: tối đa 100GB hoặc hết dung lượng đĩa khả dụng), Ceph ở Site A buộc phải xóa bỏ các Journal log cũ chưa kịp sync để tự cứu lấy mình.
             Khi Journal log cũ bị xóa, liên kết đồng bộ giữa 2 Image sẽ chuyển sang trạng thái lỗi (State: error / behind). Site B nhận thấy chuỗi log bị đứt đoạn (gãy xích) và không thể tiếp tục "nối chuỗi" để replay nữa.
-            - au khi đường mạng WAN thông thoáng trở lại, hệ thống sẽ không thể sync nối tiếp được nữa. Lúc này, rbd-mirror daemon sẽ tự động (hoặc kỹ sư chạy lệnh thủ công) thực hiện một bản Snapshot delta mới để đồng bộ lại toàn bộ dữ liệu lệch, đưa Image ở Site B về lại trạng thái khỏe mạnh (up+replaying).
+            - Sau khi đường mạng WAN thông thoáng trở lại, hệ thống sẽ không thể sync nối tiếp được nữa. Lúc này, rbd-mirror daemon sẽ tự động (hoặc kỹ sư chạy lệnh thủ công) thực hiện một bản Snapshot delta mới để đồng bộ lại toàn bộ dữ liệu lệch, đưa Image ở Site B về lại trạng thái khỏe mạnh (up+replaying).
     - **Snapshot-based Minorring:** hoạt động theo cơ chế Chụp ảnh tĩnh & Truyền phần chênh lệch (Delta Streaming).
         - Cơ chế hoạt động: Đến chu kỳ cấu hình (ví dụ: mỗi 15 phút), Ceph ở Site A sẽ tự động chụp một bản Snapshot cục bộ cho đĩa ảo (chúng được gọi là các Mirror Snapshots). Daemon rbd-mirror ở Site B phát hiện ra Snapshot mới, nó sẽ gọi lệnh rbd diff giữa Snapshot mới nhất và Snapshot gần nhất đã sync thành công.Chỉ có các block dữ liệu bị thay đổi (Delta) giữa 2 mốc thời gian này mới được đóng gói và truyền qua đường mạng WAN sang Site B.
+        - Copy-on-Write (CoW): Ceph tạo Snapshot tức thì bằng cách lưu trữ con trỏ tham chiếu Read-Only (point-in-time) đến các RADOS Object (4MB), không sao chép dữ liệu ngay lập tức
         - Mode: Asynchronous
-        - Ảnh hưởng đến I/O 
+        - Ảnh hưởng đến I/O:
+            - Thao tác đọc: Đọc trực tiếp từ Live Object. Không phát sinh chi phí I/O (Zero Overhead). 
+            - Thao tác ghi: 
+                - First Write (Ghi lần đầu sau khi Snap): Kích hoạt quy trình CoW: Đọc/Sao chép Object cũ trước -> Ghi dữ liệu mới vào Head Object -> Commit.
+                - Tác động: Phát sinh Write Amplification (1 Write từ App -> 1 Read + 2 Write vật lý). Latency tăng, IOPS giảm tạm thời.
+                - Subsequent Writes (Ghi các lần tiếp theo): Ghi trực tiếp vào Head Object. Hiệu năng trở lại bình thường.
         - Chỉ số RTO/ RPO:
             - RPO của Snapshot-based phụ thuộc hoàn toàn vào chu kỳ lịch chụp (Schedule Interval). Nếu bạn đặt lịch 15 phút/lần, điều đó đồng nghĩa với việc bạn chấp nhận RPO = 15 phút.
 
