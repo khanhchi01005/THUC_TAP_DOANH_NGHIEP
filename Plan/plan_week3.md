@@ -16,7 +16,6 @@ Bổ sung tìm hiểu thêm các khái niệm sau:
 
  - [ ] Backup vs DR
  - [ ] HA vs DR
- - [ ] Replication vs Backup
  - [ ] Local failure vs Site failure
 
 

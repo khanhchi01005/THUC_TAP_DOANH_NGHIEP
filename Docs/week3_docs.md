@@ -1,7 +1,29 @@
 # Nghiên cứu: DR
 ---
+## 1. Các khái niệm về DR
+- **Khái niệm về DR:** Khái niệm DR (Disaster Recovery - Khôi phục sau thảm họa): Là tập hợp các chính sách, công cụ, quy trình và thủ tục nhằm cho phép một tổ chức phục hồi hoặc tiếp tục các cơ sở hạ tầng và dịch vụ công nghệ thông tin quan trọng sau khi xảy ra sự cố hoặc thảm họa (tự nhiên hoặc nhân tạo).
 
-## 1. So sánh các khái niệm 
+- **Khái niệm Disaster:** Là một sự kiện bất ngờ, nghiêm trọng gây gián đoạn lớn hoặc tê liệt hoàn toàn hoạt động của hệ thống công nghệ thông tin, hạ tầng mạng hoặc toàn bộ doanh nghiệp. Thảm họa có thể làm mất dữ liệu quan trọng, ngưng trệ dịch vụ khách hàng và gây tổn thất tài chính nặng nề.
+
+- **Các loại Disaster:** Việc phân chia các thảm họa thành các nhóm dựa trên nguồn gốc và bản chất để có phương án chuẩn bị và ứng phó phù hợp. Thường bao gồm:
+    - Thảm họa tự nhiên: Động đất, lũ lụt, bão, sét đánh, hỏa hoạn do thiên nhiên...
+    - Thảm họa do con người hoặc kỹ thuật: Tấn công mạng (ransomware, DDoS), lỗi phần cứng/phần mềm trầm trọng, sự cố mất điện lưới, lỗi vận hành hoặc hành vi phá hoại nội bộ.
+
+- **Prevention:** Các biện pháp, chính sách và giải pháp công nghệ được triển khai từ trước nhằm triệt tiêu, giảm thiểu tối đa nguy cơ xảy ra thảm họa hoặc hạn chế mức độ tác động của nó (ví dụ: sử dụng nguồn điện dự phòng UPS, tường lửa, sao lưu dữ liệu định kỳ, kiểm tra bảo mật).
+
+- **Detection:** Khả năng nhận biết sự cố, bất thường hoặc dấu hiệu thảm họa ngay khi chúng vừa xuất hiện (hoặc trước khi gây hậu quả nghiêm trọng) thông qua các hệ thống giám sát tự động, cảnh báo sớm và công cụ theo dõi thời gian thực.
+
+- **Response:** Chuỗi hành động khẩn cấp được triển khai ngay lập tức khi thảm họa xảy ra nhằm kiểm soát tình hình, đảm bảo an toàn con người, cô lập sự cố và kích hoạt kế hoạch ứng phó khẩn cấp (Emergency Response Plan).
+
+- **Recovery:** Quá trình sửa chữa, tái thiết lập và đưa các hệ thống, ứng dụng, cơ sở hạ tầng CNTT cùng toàn bộ hoạt động kinh doanh trở lại trạng thái bình thường hoặc chấp nhận được sau thảm họa.
+
+- **Testing/Auditing:** Hoạt động diễn tập định kỳ các kịch bản thảm họa giả định và kiểm tra, đánh giá tính hiệu quả của Kế hoạch khôi phục thảm họa (Disaster Recovery Plan - DRP). Việc này giúp đảm bảo nhân sự và hệ thống có thể vận hành trơn tru khi sự cố thực tế xảy ra.
+
+- **Các chỉ số đánh giá:** 
+    - RPO (Recovery Point Objective - Mục tiêu điểm khôi phục): Lượng dữ liệu tối đa mà doanh nghiệp chấp nhận bị mất tính từ thời điểm xảy ra sự cố, được đo bằng đơn vị thời gian (Ví dụ: RPO = 4 tiếng nghĩa là hệ thống phải sao lưu ít nhất 4 tiếng một lần, dữ liệu cũ hơn khoảng thời gian đó có thể mất).
+    - RTO (Recovery Time Objective - Mục tiêu thời gian khôi phục): Khoảng thời gian tối đa cho phép để hệ thống ngừng hoạt động trước khi nó bắt buộc phải được khôi phục hoàn toàn và đưa vào vận hành bình thường trở lại.
+---
+## 2. So sánh các khái niệm 
 - **Backup vs DR:**
     | **Tiêu chí so sánh** | **Backup (Sao lưu dữ liệu)** | **Disaster Recovery (DR)** |
     |---|---|---|
@@ -37,7 +59,7 @@
     | **Mức độ phức tạp khôi phục** | Thấp. Hệ thống tự khắc phục hoặc kỹ sư thay thế linh kiện hỏng tại chỗ mà không làm ngắt dịch vụ. | Cao. Yêu cầu kiểm tra tính toàn vẹn dữ liệu, chuyển hướng DNS/BGP, cấu hình lại mạng và quy trình khôi phục site chính (Failback). |
 
 ---
-# 2. Nhóm trạng thái sẵn sàng 
+# 3. Nhóm trạng thái sẵn sàng 
 - **Cold Standby:** là mô hình dự phòng hệ thống ở trạng thái hoàn toàn tắt hoặc chưa được cấu hình/kích hoạt sẵn trong điều kiện vận hành bình thường.
     -  Cách khôi phục: Khi hệ thống chính sập, kỹ thuật viên cần can thiệp thủ công (bật nguồn, khôi phục dữ liệu từ bản sao lưu gần nhất, cấu hình lại mạng) để đưa hệ thống dự phòng vào hoạt động.
     - Ưu điểm:
@@ -67,7 +89,7 @@
     - Usecase: Hệ thống thanh toán, tài chính - ngân hàng: Nơi mọi giao dịch tiền tệ đòi hỏi độ chính xác tuyệt đối và không thể dừng hoạt động. Ứng dụng thương mại điện tử quy mô lớn: Nơi mỗi phút gián đoạn dịch vụ đều gây thiệt hại trực tiếp về doanh thu và uy tín.
 
 ---
-# 3. Các mô hình vận hành 
+# 4. Các mô hình vận hành 
 - **Active-Active:** Tất cả các máy chủ (hoặc nút/node) đều ở trạng thái hoạt động song song, sẵn sàng xử lý yêu cầu và chia sẻ tải thông qua cơ chế cân bằng tải (Load Balancer).
     - Tác động RTO/ RPO:
         - RPO: Gần như bằng 0.
@@ -172,7 +194,7 @@
 
 
 ---
-# 4. RBD Minorring 
+# 5. RBD Minorring 
 ![rbd minorring](image-9.png)
 
 - **RBD Minorring:** là công nghệ sao chép/đồng bộ dữ liệu khối (Block Storage) giữa các cụm Ceph (Ceph Clusters) độc lập nằm ở các vị trí địa lý khác nhau. Đây là giải pháp cốt lõi để xây dựng hạ tầng Khôi phục sau thảm họa (Disaster Recovery - DR) cho đĩa ảo máy ảo (OpenStack, Proxmox, KVM) hoặc Persistent Volume (Kubernetes/Rook-Ceph).
@@ -223,7 +245,7 @@
             - RPO của Snapshot-based phụ thuộc hoàn toàn vào chu kỳ lịch chụp (Schedule Interval). Nếu bạn đặt lịch 15 phút/lần, điều đó đồng nghĩa với việc bạn chấp nhận RPO = 15 phút.
 
 ---
-# 5. Ceph Multisite 
+# 6. Ceph Multisite 
 - **Ceph Multi-Site** là giải pháp nhân bản dữ liệu (Replication) giữa nhiều cụm Ceph (Multi-cluster) nằm ở các vị trí địa lý khác nhau.
     - Tầng hoạt động: Hoạt động duy nhất ở tầng Ceph Object Storage (RADOS Gateway - RGW) thông qua S3/Swift API.
     - Mục đích: Khắc phục thảm họa , đảm bảo tính sẵn sàng cao , phân phối dữ liệu gần người dùng (CDN) và tuân thủ chủ quyền dữ liệu
