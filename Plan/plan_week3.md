@@ -41,6 +41,9 @@ Cần nghiên cứu thêm về **Replication model**:
 - [ ] Snapshot-based replication
 - [ ] Log-based replication
 
+# Các mô hình DR trong Ceph 
+- [ ] RBD Mirorring 
+- [ ] Ceph Multi-site 
 
 Ví dụ:
 ```
