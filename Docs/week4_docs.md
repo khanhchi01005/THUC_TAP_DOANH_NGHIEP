@@ -1,3 +1,10 @@
+# One-way vs Two-way Mirror 
+
+![one-way](image-11.png)
+- **One-way RBD Mirroring** là cơ chế sao chép dữ liệu một chiều từ RBD image thuộc Primary Ceph cluster sang Non-primary image thuộc Secondary Ceph cluster. Client chỉ thực hiện thao tác ghi trên image Primary, trong khi image Secondary được duy trì như một bản sao dự phòng và không cho phép client ghi trực tiếp. Thành phần rbd-mirror được triển khai tại Secondary cluster, chịu trách nhiệm kết nối đến Primary cluster, thu thập các thay đổi của image và áp dụng chúng lên bản sao tại Secondary. Mô hình này hỗ trợ triển khai nhiều Secondary cluster để phục vụ các kịch bản Disaster Recovery và tăng khả năng bảo vệ dữ liệu.
+
+![two_way](image-12.png)
+- **Two-way RBD Mirroring** là cơ chế đồng bộ dữ liệu giữa hai Ceph cluster, cho phép chuyển đổi hướng replication dựa trên vai trò Primary của RBD image. Khác với One-way Mirroring, cả hai cluster đều phải triển khai rbd-mirror daemon để hỗ trợ việc promote và demote image trên từng cluster. Khi image tại Site A là Primary, dữ liệu được đồng bộ từ A sang B. Khi xảy ra failover và image tại Site B được promote thành Primary, các thay đổi mới có thể được thực hiện tại Site B và đồng bộ ngược về Site A. Cơ chế này hỗ trợ xây dựng hệ thống Disaster Recovery với khả năng failover và failback giữa hai site, đồng thời yêu cầu kiểm soát chặt chẽ quyền ghi để tránh tình trạng split-brain
 # Benchmark Results
 
 ## 1. One-way Mirroring
