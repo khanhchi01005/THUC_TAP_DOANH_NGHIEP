@@ -6,7 +6,18 @@
 ![two_way](image-12.png)
 - **Two-way RBD Mirroring** là cơ chế đồng bộ dữ liệu giữa hai Ceph cluster, cho phép chuyển đổi hướng replication dựa trên vai trò Primary của RBD image. Khác với One-way Mirroring, cả hai cluster đều phải triển khai rbd-mirror daemon để hỗ trợ việc promote và demote image trên từng cluster. Khi image tại Site A là Primary, dữ liệu được đồng bộ từ A sang B. Khi xảy ra failover và image tại Site B được promote thành Primary, các thay đổi mới có thể được thực hiện tại Site B và đồng bộ ngược về Site A. Cơ chế này hỗ trợ xây dựng hệ thống Disaster Recovery với khả năng failover và failback giữa hai site, đồng thời yêu cầu kiểm soát chặt chẽ quyền ghi để tránh tình trạng split-brain
 # Benchmark Results
+# Kiến trúc 
+    - 2 site, mỗi site 2 VM
+    - 1VM: 2vCPU, 4GiB Memory, OS Disk 20GB, OSD 30GB/VM 
 
+# Phương pháp Benchmark:
+    - Công cụ : FIO 
+    - Block size: 4 KiB
+    - iodepth: 16
+    - numjobs: 4
+    - Thời gian: 60 giây
+    - Các workload: Random read, random write 
+    - Các chỉ số đo: IOPS, throughput, latency, CPU, I/O wait, replication lag.
 ## 1. One-way Mirroring
 
 ### Normal Write
@@ -44,7 +55,19 @@
 *Hình: Chuỗi thời gian (time series) các metric kịch bản Normal Read.*
 
 ---
+#  RBD Mirror One-Way Jounal 
+- Kiểm thử cơ chế đồng bộ dữ liệu một chiều từ Site A sang Site B bằng phương pháp Journal-based 
+    - Site A: Primary — cho phép ghi dữ liệu
+    - Site B: Non-primary — chỉ nhận dữ liệu được đồng bộ
+    - Hướng đồng bộ: Site A → Site B
 
+- Triển khai:
+    - Tạo một RBD image mới dành riêng cho bài kiểm thử Journal trên Site A.
+    - Cấu hình kết nối và thiết lập quan hệ peer giữa hai Ceph cluster.
+    - Cấu hình pool rbd ở chế độ image mirroring.
+    - Bật Journal-based Mirroring cho image trên Site A.
+    - Triển khai rbd-mirror daemon và kiểm tra trạng thái đồng bộ.
+    - Chạy FIO trên image Primary tại Site A trong 60 giây
 ### Journal Write
 | Chỉ số đo | Giá trị |
 | :--- | :--- |
@@ -80,6 +103,12 @@
 *Hình: Chuỗi thời gian (time series) các metric kịch bản Journal Read.*
 
 ---
+#  RBD Mirror One-Way Snapshot
+- Triển khai 
+    - Tạo một RBD image mới dành riêng cho bài kiểm thử Snapshot trên Site A
+    - Bật Snapshot-based Mirroring cho image trên Site A.
+    - Thực hiện Snapshot sau 10s
+    - Chạy FIO trên image Primary tại Site A trong 60 giây.
 
 ### Snap Write
 | Chỉ số đo | Giá trị |
@@ -158,7 +187,23 @@
 | *Time series metrics: Site A* | *Time series metrics: Site B* |
 
 ---
+# RBD Mirroring Two-Way Journal 
+- Kiểm thử cơ chế đồng bộ dữ liệu hai chiều từ Site A sang Site B bằng phương pháp Journal-based 
+    - image-site-a: Primary tại Site A → đồng bộ sang Site B.
+    - image-site-b: Primary tại Site B → đồng bộ sang Site A.
+    - Hướng đồng bộ: Site A <-> Site B
+    - Hai image hoạt động độc lập, cho phép kiểm thử đồng bộ theo cả hai hướng đồng thời.
 
+- Triển khai:
+    - Tạo hai RBD image riêng biệt, mỗi site một image dành cho bài kiểm thử Journal.
+    - Cấu hình kết nối và thiết lập quan hệ peer giữa hai Ceph cluster.
+    - Cấu hình pool rbd ở chế độ image mirroring.
+    - Bật Journal-based Mirroring cho cả hai image.
+    - Thiết lập vai trò Primary:    
+        - image-site-a trên Site A.
+        - image-site-b trên Site B
+    - Triển khai rbd-mirror daemon trên cả hai site.
+    - Chạy FIO trên image Primary tại Site A trong 60 giây
 ### Journal Write
 | Chỉ số đo | Site A | Site B |
 | :--- | :--- | :--- |
@@ -198,7 +243,23 @@
 | *Time series metrics: Site A* | *Time series metrics: Site B* |
 
 ---
+# RBD Mirroring Two-Way Snapshot
+- Kiểm thử cơ chế đồng bộ dữ liệu hai chiều từ Site A sang Site B bằng phương pháp Snapshot-based 
+    - image-site-a: Primary tại Site A → đồng bộ sang Site B.
+    - image-site-b: Primary tại Site B → đồng bộ sang Site A.
+    - Hướng đồng bộ: Site A <-> Site B
+    - Hai image hoạt động độc lập, cho phép kiểm thử đồng bộ theo cả hai hướng đồng thời.
 
+- Triển khai:
+    - Tạo hai RBD image riêng biệt, mỗi site một image dành cho bài kiểm thử Snapshot.
+    - Cấu hình kết nối và thiết lập quan hệ peer giữa hai Ceph cluster.
+    - Cấu hình pool rbd ở chế độ image mirroring.
+    - Bật Snapshot-based Mirroring cho cả hai image.
+    - Thiết lập vai trò Primary:    
+        - image-site-a trên Site A.
+        - image-site-b trên Site B
+    - Triển khai rbd-mirror daemon trên cả hai site.
+    - Chạy FIO trên image Primary tại Site A trong 60 giây
 ### Snapshot Write
 | Chỉ số đo | Site A | Site B |
 | :--- | :--- | :--- |
@@ -236,3 +297,20 @@
 | :---: | :---: |
 | ![Site A](./img/plot_snap_read_2way-snap-a.png) | ![Site B](./img/plot_snap_read_2way-snap-b.png) |
 | *Time series metrics: Site A* | *Time series metrics: Site B* |
+
+# KỂT LUẬN 
+- **So sánh Journal-based vs Snapshot-based Mirroring**
+    - **Snapshot-based:** Hiệu năng đọc/ghi chỉ giảm 5-10% so với baseline, vì cơ chế này chỉ định kỳ tạo snapshot và đồng bộ phần delta thay vì log từng I/O. Phù hợp với các ứng dụng phổ thông, hệ thống yêu cầu hiệu năng ghi cao và chấp nhận RPO theo chu kỳ lịch trình snapshot.
+    - **Journal-based:** IOPS ghi giảm tới ~96% so với baseline, latency tăng từ hàng chục ms lên hàng nghìn ms (p99 có lúc >17s ở kịch bản Two-way). Nguyên nhân là do cơ chế journal phải ghi log tuần tự (double write: ghi vào journal object rồi mới ghi vào data object), tạo ra I/O amplification lớn, thể hiện rõ qua %iowait rất cao (32–45%). Phù hợp với các hệ thống yêu cầu RPO ~ 0 
+    - **Trade off:** Journal-based cho RPO gần như bằng 0 (đồng bộ gần thời gian thực) nhưng chi phí hiệu năng rất lớn; Snapshot-based cho hiệu năng gần với native nhưng RPO phụ thuộc vào chu kỳ snapshot (trong bài test là 10s), nghĩa là có thể mất dữ liệu trong khoảng thời gian giữa hai lần snapshot nếu xảy ra sự cố
+
+- **So sánh One-way vs Two-way:**Với cùng một cơ chế (Journal hoặc Snapshot), Two-way không làm suy giảm hiệu năng đáng kể so với One-way ở từng site riêng lẻ — các chỉ số IOPS/latency/iowait của Site A và Site B trong kịch bản Two-way tương đương với kịch bản One-way tương ứng.
+    - Two-way mirroring phù hợp cho kịch bản Active-Active hoặc yêu cầu failover/failback linh hoạt giữa hai site, nhưng cần kiểm soát chặt chẽ quyền ghi (tránh split-brain) và tính toán thêm tài nguyên CPU/network dự phòng cho cả hai chiều đồng bộ.
+
+- **Ảnh hưởng đến tài nguyên hệ thống:**
+    - CPU Compute/Busy Node ở các kịch bản Normal/Snapshot Read khá cao (86–94%) do đặc thù workload random read 4K với iodepth=16, numjobs=4 — đây là giới hạn của tài nguyên FIO client/test bench hơn là do cơ chế mirroring.
+    - %iowait là chỉ số phân biệt rõ nhất giữa hai cơ chế: Journal-based luôn có iowait cao gấp 2–4 lần Snapshot-based, khẳng định nút thắt cổ chai nằm ở việc ghi journal tuần tự.
+
+- **Ưu tiên Snapshot-based mirroring** cho các hệ thống production yêu cầu hiệu năng I/O cao, đặc biệt là ghi (write-intensive workload), chấp nhận RPO ở mức phút/giây tùy chu kỳ snapshot cấu hình
+- **Ưu tiên Snapshot-based mirroring** cho các hệ thống production yêu cầu hiệu năng I/O cao, đặc biệt là ghi (write-intensive workload), chấp nhận RPO ở mức phút/giây tùy chu kỳ snapshot cấu hình
+- Nếu triển khai Two-way mirroring, nên thử nghiệm thêm ở quy mô tải lớn hơn và nhiều image đồng thời để đánh giá chính xác overhead cộng dồn trước khi đưa vào production.
