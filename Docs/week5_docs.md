@@ -1,28 +1,36 @@
-# GIẢI PHÁP DR CEPH 
+# Giải pháp DR Ceph
 
-# Hạ tầng 
-- Ceph cluster 1: gồm 2 OSD, mỗi OSD 30GB 
-- Ceph cluster 2: gồm 2 OSD, mỗi OSD 30GB
-- Máy ảo cài Openstack: Tạo cinder volume kết nối tới Ceph cluster 1 
-- Ceph cluster 1 và cluster 2 được cấu hình rbd mirror với cluster 1 là primary 
+## Hạ tầng
 
-# Kịch bản Failover 
-- Thực hiện Primary site down 
-- Hiện tượng Network Partition giữa 2 Ceph cluster 
+- Ceph cluster 1: gồm 2 OSD, mỗi OSD 30 GB.
+- Ceph cluster 2: gồm 2 OSD, mỗi OSD 30 GB.
+- Máy ảo cài OpenStack: tạo Cinder volume kết nối tới Ceph cluster 1.
+- Ceph cluster 1 và cluster 2 được cấu hình RBD mirror, với cluster 1 là primary.
 
-# One-way Journal 
-# Scenario 1: Primary site failure 
-- **Môi trường thử nghiệm**
-| Thành phần | Chi tiết |
-|---|---|
-| **Volume thử nghiệm** | `volumes/volume-907d059a-8501-48cc-8672-97bcc9ed8c30` (`failover-test-vol`) — Volume Cinder chạy trên nền Cirros-OS thực tế, sử dụng RBD journaling mirroring. |
-| **Cluster 1 (Site A)** | `ceph-a1` (`13.212.20.167`) + `ceph-a2` (`172.31.46.199`, nội bộ), gồm 2 MON, 2 OSD, Ceph v20.2.4. |
-| **Cluster 2 (Site B)** | `ceph-b1` (`18.141.205.135`) + `ceph-b2` (`172.31.18.188`), có 1 tiến trình `rbd-mirror` chạy trên `ceph-b2`. |
-| **Cấu hình Mirror** | One-way, `site-a → site-b`; Site A là **Primary**, Site B là **Secondary (rx-only)**; sử dụng **RBD journal-based mirroring (asynchronous)**. |
+## Kịch bản failover
 
-- **Thực hiện**: Duy trì tải ghi liên tục trên Site A trong khi replication bất đồng bộ sang Site B đang có độ trễ, sau đó chủ động ngắt Site A để mô phỏng sự cố mất toàn bộ site. Tiếp theo, thực hiện force-promote Site B thành primary và kiểm tra khả năng khôi phục ghi thực tế, từ đó đánh giá RPO do replication lag và RTO của quá trình failover.
- 
-**Quy trình kiểm thử**
+- Thực hiện primary site down.
+- Mô phỏng network partition giữa 2 Ceph cluster.
+
+## One-way journal
+
+### Scenario 1: Primary site failure
+
+#### Môi trường thử nghiệm
+
+| Thành phần             | Chi tiết                                                                                                                                                       |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Volume thử nghiệm**  | `volumes/volume-907d059a-8501-48cc-8672-97bcc9ed8c30` (`failover-test-vol`) — Volume Cinder chạy trên nền Cirros-OS thực tế, sử dụng RBD journaling mirroring. |
+| **Cluster 1 (Site A)** | `ceph-a1` (`13.212.20.167`) + `ceph-a2` (`172.31.46.199`, nội bộ), gồm 2 MON, 2 OSD, Ceph v20.2.4.                                                             |
+| **Cluster 2 (Site B)** | `ceph-b1` (`18.141.205.135`) + `ceph-b2` (`172.31.18.188`), có 1 tiến trình `rbd-mirror` chạy trên `ceph-b2`.                                                  |
+| **Cấu hình Mirror**    | One-way, `site-a → site-b`; Site A là **Primary**, Site B là **Secondary (rx-only)**; sử dụng **RBD journal-based mirroring (asynchronous)**.                  |
+
+#### Thực hiện
+
+Duy trì tải ghi liên tục trên Site A trong khi replication bất đồng bộ sang Site B đang có độ trễ, sau đó chủ động ngắt Site A để mô phỏng sự cố mất toàn bộ site. Tiếp theo, thực hiện force-promote Site B thành primary và kiểm tra khả năng khôi phục ghi thực tế, từ đó đánh giá RPO do replication lag và RTO của quá trình failover.
+
+#### Quy trình kiểm thử
+
 1. **Bước 1 — Tạo tải ghi liên tục trên Site A**
 
    Chạy `rbd bench` để tạo luồng ghi ngẫu nhiên 4 KiB liên tục vào volume:
@@ -235,41 +243,43 @@
 
     Đây là trạng thái **split-brain**. Chưa thực hiện bước hòa giải trong Scenario này; cần demote bản sao cũ trên Site A và thực hiện resync từ Site B trước khi cho phép Site A tiếp tục nhận ghi.
 
-- **Kết quả**
+#### Kết quả
 
-| Chỉ số | Giá trị | Ghi chú |
-|---|---:|---|
-| **RPO** | ≥ 137.022 entries (~561 MB) | Mức tối thiểu dựa trên replication lag ngay trước sự cố; thực tế có thể cao hơn do client vẫn tiếp tục ghi trước khi Site A dừng. |
-| **RTO – Promote** | 88 giây | Từ `03:47:59.735Z` đến `03:49:27.830Z`. |
-| **RTO – Khôi phục ghi thực tế** | ~3 phút 45 giây | Tính đến khi write thành công sau khi xử lý trạng thái `rbd-mirror`. |
-| **Thời gian Site A gián đoạn** | ~9 phút | Từ `03:47:59Z` đến `03:56:51Z`. |
-| **Tốc độ ghi trước sự cố** | ~11–15 MiB/s, ~2.600–3.800 IOPS | Random write 4 KiB, benchmark 2 GiB. |
-| **Tốc độ ghi sau failover** | 33 MiB/s | Mẫu test 4 MiB, chỉ dùng để xác nhận khả năng ghi, không dùng để so sánh hiệu năng. |
-| **Client operations trước khi dừng** | 242.912 ops | Giá trị từ log `rbd bench`; không đối chiếu trực tiếp với journal TID. |
-| **Trạng thái Cluster 1 sau phục hồi** | `HEALTH_OK`, 97/97 PG `active+clean` | Cluster 1 đã khôi phục trạng thái hoạt động bình thường. |
-| **Rủi ro tồn đọng** | **Split-brain** | Cả hai site đều báo `mirroring primary: true`; cần demote Site A và resync từ Site B trước khi cho phép Site A ghi lại. |
+| Chỉ số                                |                              Giá trị | Ghi chú                                                                                                                           |
+| ------------------------------------- | -----------------------------------: | --------------------------------------------------------------------------------------------------------------------------------- |
+| **RPO**                               |          ≥ 137.022 entries (~561 MB) | Mức tối thiểu dựa trên replication lag ngay trước sự cố; thực tế có thể cao hơn do client vẫn tiếp tục ghi trước khi Site A dừng. |
+| **RTO – Promote**                     |                              88 giây | Từ `03:47:59.735Z` đến `03:49:27.830Z`.                                                                                           |
+| **RTO – Khôi phục ghi thực tế**       |                      ~3 phút 45 giây | Tính đến khi write thành công sau khi xử lý trạng thái `rbd-mirror`.                                                              |
+| **Thời gian Site A gián đoạn**        |                              ~9 phút | Từ `03:47:59Z` đến `03:56:51Z`.                                                                                                   |
+| **Tốc độ ghi trước sự cố**            |      ~11–15 MiB/s, ~2.600–3.800 IOPS | Random write 4 KiB, benchmark 2 GiB.                                                                                              |
+| **Tốc độ ghi sau failover**           |                             33 MiB/s | Mẫu test 4 MiB, chỉ dùng để xác nhận khả năng ghi, không dùng để so sánh hiệu năng.                                               |
+| **Client operations trước khi dừng**  |                          242.912 ops | Giá trị từ log `rbd bench`; không đối chiếu trực tiếp với journal TID.                                                            |
+| **Trạng thái Cluster 1 sau phục hồi** | `HEALTH_OK`, 97/97 PG `active+clean` | Cluster 1 đã khôi phục trạng thái hoạt động bình thường.                                                                          |
+| **Rủi ro tồn đọng**                   |                      **Split-brain** | Cả hai site đều báo `mirroring primary: true`; cần demote Site A và resync từ Site B trước khi cho phép Site A ghi lại.           |
 
-- **Kết luận**
-    - Replication lag dẫn đến RPO khác 0: Với journaling mirror theo cơ chế asynchronous, dữ liệu chưa kịp replicate sang Site B có thể bị mất khi Site A gặp sự cố. Trong thử nghiệm, replication lag ngay trước sự cố tương ứng tối thiểu khoảng 561 MB dữ liệu chưa được đồng bộ.
-    - **RPO:** ≥ 137.022 entries (~561 MB) chưa được replicate tại thời điểm Site A gặp sự cố, do replication bất đồng bộ.
-    - **RTO:** ~3 phút 45 giây để Site B thực sự ghi được dữ liệu sau failover; thời gian promote riêng là 88 giây.
-    - **Failover:** Promote thành công chưa đồng nghĩa dịch vụ đã được khôi phục: Sau khi promote --force, image đã trở thành primary nhưng chưa thể ghi ngay do trạng thái của rbd-mirror chưa được làm mới. Vì vậy, RTO cần được tính đến thời điểm write thực tế thành công, thay vì chỉ tính đến thời điểm promote
-    - **Rủi ro:** Khi Site A quay lại, có thể xảy ra **split-brain**; cần demote Site A và resync từ Site B trước khi cho phép ghi lại.
+#### Kết luận
 
-# Scenario 2: Network partion 
-- **Môi trường thực nghiệm:** 
-    - Ceph Cluster 1 (Primary): ceph-a1 (18.143.172.221, private 172.31.41.64) + ceph-a2 (172.31.46.199, chỉ có private IP)
-    - Ceph Cluster 2 (Secondary): ceph-b1 (18.140.57.71, private 172.31.27.91) + ceph-b2 (172.31.18.188, chỉ có private IP)
-    - Volume thử nghiệm: journal-cinder-test-vol — được tạo mới hoàn toàn cho bài test này, không dùng lại từ các kịch bản trước.
+- Replication lag dẫn đến RPO khác 0: Với journaling mirror theo cơ chế asynchronous, dữ liệu chưa kịp replicate sang Site B có thể bị mất khi Site A gặp sự cố. Trong thử nghiệm, replication lag ngay trước sự cố tương ứng tối thiểu khoảng 561 MB dữ liệu chưa được đồng bộ.
+- **RPO:** ≥ 137.022 entries (~561 MB) chưa được replicate tại thời điểm Site A gặp sự cố, do replication bất đồng bộ.
+- **RTO:** ~3 phút 45 giây để Site B thực sự ghi được dữ liệu sau failover; thời gian promote riêng là 88 giây.
+- **Failover:** Promote thành công chưa đồng nghĩa dịch vụ đã được khôi phục: Sau khi promote `--force`, image đã trở thành primary nhưng chưa thể ghi ngay do trạng thái của `rbd-mirror` chưa được làm mới. Vì vậy, RTO cần được tính đến thời điểm write thực tế thành công, thay vì chỉ tính đến thời điểm promote.
+- **Rủi ro:** Khi Site A quay lại, có thể xảy ra **split-brain**; cần demote Site A và resync từ Site B trước khi cho phép ghi lại.
+
+# Scenario 2: Network partion
+
+- **Môi trường thực nghiệm:**
+  - Ceph Cluster 1 (Primary): ceph-a1 (18.143.172.221, private 172.31.41.64) + ceph-a2 (172.31.46.199, chỉ có private IP)
+  - Ceph Cluster 2 (Secondary): ceph-b1 (18.140.57.71, private 172.31.27.91) + ceph-b2 (172.31.18.188, chỉ có private IP)
+  - Volume thử nghiệm: journal-cinder-test-vol — được tạo mới hoàn toàn cho bài test này, không dùng lại từ các kịch bản trước.
 
 - **Thực hiện**: Tạo volume qua OpenStack Cinder → xác nhận tự động mirror sang Cluster 2 và đồng bộ thành công.
-Giả lập network partition → Cluster 1 vẫn ghi bình thường, Cluster 2 chuyển down+error, trong khi OpenStack vẫn báo available.
-Gỡ partition → mirror tự động phục hồi, replay backlog từ 12.801 về 0 trong khoảng 2 phút.
+  Giả lập network partition → Cluster 1 vẫn ghi bình thường, Cluster 2 chuyển down+error, trong khi OpenStack vẫn báo available.
+  Gỡ partition → mirror tự động phục hồi, replay backlog từ 12.801 về 0 trong khoảng 2 phút.
 
 - **Quy trình**
-Bước 1 — Tạo volume thông qua API OpenStack thực tế:
-openstack volume create --size 2 --image cirros --type ceph journal-cinder-test-vol
-Chờ cho đến khi trạng thái chuyển sang available. Kết quả: Volume ID 5e99b66f-dbcf-43ce-848a-ec9be838ea71, chứa dữ liệu OS Cirros thật, đi qua Cinder RBD driver để vào Cluster 1.
+  Bước 1 — Tạo volume thông qua API OpenStack thực tế:
+  openstack volume create --size 2 --image cirros --type ceph journal-cinder-test-vol
+  Chờ cho đến khi trạng thái chuyển sang available. Kết quả: Volume ID 5e99b66f-dbcf-43ce-848a-ec9be838ea71, chứa dữ liệu OS Cirros thật, đi qua Cinder RBD driver để vào Cluster 1.
 
 Bước 2 — Xác nhận tính năng tự động mirror ở phía Ceph (trên Cluster 1):
 rbd info volumes/volume-5e99b66f-dbcf-43ce-848a-ec9be838ea71
@@ -301,15 +311,15 @@ entries_behind_primary giảm dần từ 12.801 về 0 trong tổng thời gian 
 Bước 11 — Kiểm tra lại tầng OpenStack: Trạng thái vẫn là available xuyên suốt từ đầu đến cuối bài test.
 
 - **Kết quả**
-| Metric | Kết quả |
-|---|---|
-| **Thời gian phát hiện (Ceph)** | ~5 giây |
-| **Thời gian phát hiện (OpenStack)** | Không có — zero visibility |
-| **Ảnh hưởng I/O ở Primary** | Không có — duy trì ~14 MiB/s |
-| **Ảnh hưởng sức khỏe toàn cụm** | Không có trên cả hai cụm |
-| **RPO** | 0 byte |
-| **RTO – Khôi phục kết nối** | ~37 giây, tự động, không cần restart daemon |
-| **RTO – Đồng bộ hoàn tất** | ~2 phút |
+  | Metric | Kết quả |
+  |---|---|
+  | **Thời gian phát hiện (Ceph)** | ~5 giây |
+  | **Thời gian phát hiện (OpenStack)** | Không có — zero visibility |
+  | **Ảnh hưởng I/O ở Primary** | Không có — duy trì ~14 MiB/s |
+  | **Ảnh hưởng sức khỏe toàn cụm** | Không có trên cả hai cụm |
+  | **RPO** | 0 byte |
+  | **RTO – Khôi phục kết nối** | ~37 giây, tự động, không cần restart daemon |
+  | **RTO – Đồng bộ hoàn tất** | ~2 phút |
 
 - **Kết luận:**
 - OpenStack vẫn báo volume available và không cảnh báo khi RBD mirror bị gián đoạn, vì OpenStack không có tầm nhìn vào trạng thái của site DR.
