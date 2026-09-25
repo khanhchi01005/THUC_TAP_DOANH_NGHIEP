@@ -12,6 +12,14 @@
 - Thực hiện primary site down.
 - Mô phỏng network partition giữa 2 Ceph cluster.
 
+## Kết luận chung
+- Qua các scenario kiểm thử, Journal và Snapshot Mirroring đều đáp ứng được khả năng replication và recovery, nhưng có sự khác biệt rõ về cách đánh đổi giữa RPO, hiệu năng và vận hành
+- **Journal Mode** có ưu điểm về RPO thấp và replication liên tục, phù hợp với các workload có yêu cầu nghiêm ngặt về dữ liệu. Tuy nhiên, benchmark cho thấy Journal Mode gây overhead I/O lớn, làm giảm đáng kể write throughput và tăng write latency.
+- **Snapshot Mode**  duy trì hiệu năng I/O gần như baseline, loại bỏ overhead ghi liên tục và cung cấp RPO có thể dự báo theo lịch trình. Đây là lựa chọn tối ưu cho phần lớn các volume OpenStack/Cinder (VM boot, data disks, workload ghi nhiều)
+- Với môi trường OpenStack + Cinder + Ceph RBD, có thể sử dụng Snapshot Mode cho các volume thông thường và workload ưu tiên hiệu năng, trong khi Journal Mode dành cho các volume đặc biệt có yêu cầu RPO rất thấp. Cách tiếp cận này cho phép lựa chọn mirroring mode theo đặc tính và yêu cầu của từng workload thay vì áp dụng một cấu hình duy nhất cho toàn bộ hệ thống.
+- Kết quả kiểm thử cho thấy việc lựa chọn mirroring mode không chỉ phụ thuộc vào khả năng failover, mà cần cân nhắc đồng thời RPO, RTO, hiệu năng I/O và độ phức tạp vận hành
+
+### Quy trình thực hiện chi tiết 
 ## One-way journal
 
 ### Scenario 1: Primary site failure
@@ -33,31 +41,16 @@ Duy trì tải ghi liên tục trên Site A trong khi replication bất đồng 
 
 1. **Bước 1 — Tạo tải ghi liên tục trên Site A**
 
-   Chạy `rbd bench` để tạo luồng ghi ngẫu nhiên 4 KiB liên tục vào volume:
+   Chạy rbd bench ghi ngẫu nhiên 4 KiB liên tục vào volume trên Site A với tốc độ khoảng 11–15 MiB/s, quá trình ghi kéo dài đủ lâu để replication có thời gian phát sinh độ trễ.
 
    ```bash
    rbd bench --io-type write --io-size 4096 --io-total 2G --io-pattern rand \
      volumes/volume-907d059a-8501-48cc-8672-97bcc9ed8c30
    ```
 
-   Benchmark được chạy trong `cephadm shell` trên `ceph-a1`. Với tốc độ ghi khoảng `11–15 MiB/s`, quá trình ghi kéo dài đủ lâu để replication có thời gian phát sinh độ trễ.
-
 2. **Bước 2 — Kiểm tra replication lag**
 
-   Trong khi Site A vẫn đang ghi, kiểm tra trạng thái mirror từ Cluster 2:
-
-   ```bash
-   rbd mirror image status volumes/volume-907d059a-8501-48cc-8672-97bcc9ed8c30
-   ```
-
-   Tại `03:47:17Z`, kết quả cho thấy:
-
-   ```text
-   entries_behind_primary: 71793
-   ETA: 261 seconds
-   ```
-
-   Điều này xác nhận Site B đang **chậm hơn Site A trong quá trình replay journal**.
+   TTheo dõi replication lag: Trong quá trình ghi, Site B bị chậm hơn Site A. Tại 03:47:17Z, ghi nhận 71.793 entries behind, và ngay trước sự cố khoảng cách journal đạt 137.022 entries.
 
 3. **Bước 3 — Ghi nhận trạng thái replication ngay trước khi xảy ra sự cố**
 
@@ -265,64 +258,293 @@ Duy trì tải ghi liên tục trên Site A trong khi replication bất đồng 
 - **Failover:** Promote thành công chưa đồng nghĩa dịch vụ đã được khôi phục: Sau khi promote `--force`, image đã trở thành primary nhưng chưa thể ghi ngay do trạng thái của `rbd-mirror` chưa được làm mới. Vì vậy, RTO cần được tính đến thời điểm write thực tế thành công, thay vì chỉ tính đến thời điểm promote.
 - **Rủi ro:** Khi Site A quay lại, có thể xảy ra **split-brain**; cần demote Site A và resync từ Site B trước khi cho phép ghi lại.
 
-# Scenario 2: Network partion
+### Scenario 2: Network partition
 
-- **Môi trường thực nghiệm:**
-  - Ceph Cluster 1 (Primary): ceph-a1 (18.143.172.221, private 172.31.41.64) + ceph-a2 (172.31.46.199, chỉ có private IP)
-  - Ceph Cluster 2 (Secondary): ceph-b1 (18.140.57.71, private 172.31.27.91) + ceph-b2 (172.31.18.188, chỉ có private IP)
-  - Volume thử nghiệm: journal-cinder-test-vol — được tạo mới hoàn toàn cho bài test này, không dùng lại từ các kịch bản trước.
+#### Môi trường thực nghiệm
 
-- **Thực hiện**: Tạo volume qua OpenStack Cinder → xác nhận tự động mirror sang Cluster 2 và đồng bộ thành công.
-  Giả lập network partition → Cluster 1 vẫn ghi bình thường, Cluster 2 chuyển down+error, trong khi OpenStack vẫn báo available.
-  Gỡ partition → mirror tự động phục hồi, replay backlog từ 12.801 về 0 trong khoảng 2 phút.
+- Ceph Cluster 1 (Primary): ceph-a1 (18.143.172.221, private 172.31.41.64) + ceph-a2 (172.31.46.199, chỉ có private IP).
+- Ceph Cluster 2 (Secondary): ceph-b1 (18.140.57.71, private 172.31.27.91) + ceph-b2 (172.31.18.188, chỉ có private IP).
+- Volume thử nghiệm: `journal-cinder-test-vol` — được tạo mới hoàn toàn cho bài test này, không dùng lại từ các kịch bản trước.
 
-- **Quy trình**
-  Bước 1 — Tạo volume thông qua API OpenStack thực tế:
-  openstack volume create --size 2 --image cirros --type ceph journal-cinder-test-vol
-  Chờ cho đến khi trạng thái chuyển sang available. Kết quả: Volume ID 5e99b66f-dbcf-43ce-848a-ec9be838ea71, chứa dữ liệu OS Cirros thật, đi qua Cinder RBD driver để vào Cluster 1.
+#### Thực hiện
 
-Bước 2 — Xác nhận tính năng tự động mirror ở phía Ceph (trên Cluster 1):
-rbd info volumes/volume-5e99b66f-dbcf-43ce-848a-ec9be838ea71
-Kết quả xác nhận mirroring state: enabled, mirroring mode: journal, mirroring primary: true mà không cần chạy thủ công lệnh bật mirror cho từng image.
+Tạo volume qua OpenStack Cinder, xác nhận tự động mirror sang Cluster 2 và đồng bộ thành công.
 
-Bước 3 — Xác nhận đồng bộ sang Cluster 2:
-Trạng thái đạt up+replaying, entries_behind_primary: 0 sau khoảng 10 giây.
+Giả lập network partition: Cluster 1 vẫn ghi bình thường, Cluster 2 chuyển `down+error`, trong khi OpenStack vẫn báo `available`.
 
-Bước 4 — Áp dụng phân vùng mạng. Chặn (blocklist) host daemon secondary của Cluster 2 trên Cluster 1 (primary):
-ceph osd blocklist add 172.31.18.188 (Lưu ý: Hướng chặn ngược lại với bài test raw-RBD trước đó do Cinder chỉ có thể ghi vào Cluster 1).
+Gỡ partition: mirror tự động phục hồi, replay backlog từ 12.801 về 0 trong khoảng 2 phút.
 
-Bước 5 — Tạo tải ghi trên primary (dùng rbd bench trực tiếp lên image Ceph):
-Quá trình hoàn tất bình thường ở tốc độ ~14 MiB/s, chứng minh phân vùng mạng không ảnh hưởng gì đến hiệu năng ghi ở phía primary.
+#### Quy trình
 
-Bước 6 — Kiểm tra đồng thời cả hai lớp trong lúc sự cố:
+1. **Tạo volume thông qua API OpenStack thực tế:**
 
-Tầng Ceph (trên Cluster 2): Trạng thái down+error, mô tả replay completed with error: (108) Cannot send after transport endpoint shutdown (phát hiện sau ~5 giây).
+   ```bash
+   openstack volume create --size 2 --image cirros --type ceph journal-cinder-test-vol
+   ```
 
-Tầng OpenStack (trên node DevStack): openstack volume show journal-cinder-test-vol -f value -c status trả về available. Không có bất kỳ thay đổi nào. Trạng thái Cinder không có bất kỳ tầm nhìn nào vào mối quan hệ mirror; nó chỉ phản ánh sức khỏe của Cluster 1, vốn không hề bị ảnh hưởng.
+   Chờ cho đến khi trạng thái chuyển sang `available`. Kết quả: Volume ID `5e99b66f-dbcf-43ce-848a-ec9be838ea71`, chứa dữ liệu OS Cirros thật, đi qua Cinder RBD driver để vào Cluster 1.
 
-Bước 7 — Xác nhận sức khỏe tổng thể của cụm: Cả hai cụm không có cảnh báo nào liên quan đến mirror.
+2. **Xác nhận tính năng tự động mirror ở phía Ceph (trên Cluster 1):**
 
-Bước 8 & 9 — Gỡ bỏ blocklist và theo dõi tự phục hồi:
-Gỡ blocklist vào lúc 16:22:19.012Z. Theo dõi trạng thái tự động khôi phục về up+replaying sau khoảng 37 giây mà không cần khởi động lại daemon thủ công.
+   ```bash
+   rbd info volumes/volume-5e99b66f-dbcf-43ce-848a-ec9be838ea71
+   ```
 
-Bước 10 — Xác nhận lượng backlog đã được xử lý hết:
-entries_behind_primary giảm dần từ 12.801 về 0 trong tổng thời gian ~2 phút.
+   Kết quả xác nhận `mirroring state: enabled`, `mirroring mode: journal`, `mirroring primary: true` mà không cần chạy thủ công lệnh bật mirror cho từng image.
 
-Bước 11 — Kiểm tra lại tầng OpenStack: Trạng thái vẫn là available xuyên suốt từ đầu đến cuối bài test.
+3. **Xác nhận đồng bộ sang Cluster 2:** Trạng thái đạt `up+replaying`, `entries_behind_primary: 0` sau khoảng 10 giây.
 
-- **Kết quả**
-  | Metric | Kết quả |
-  |---|---|
-  | **Thời gian phát hiện (Ceph)** | ~5 giây |
-  | **Thời gian phát hiện (OpenStack)** | Không có — zero visibility |
-  | **Ảnh hưởng I/O ở Primary** | Không có — duy trì ~14 MiB/s |
-  | **Ảnh hưởng sức khỏe toàn cụm** | Không có trên cả hai cụm |
-  | **RPO** | 0 byte |
-  | **RTO – Khôi phục kết nối** | ~37 giây, tự động, không cần restart daemon |
-  | **RTO – Đồng bộ hoàn tất** | ~2 phút |
+4. **Áp dụng phân vùng mạng:** Chặn (blocklist) host daemon secondary của Cluster 2 trên Cluster 1 (primary):
 
-- **Kết luận:**
-- OpenStack vẫn báo volume available và không cảnh báo khi RBD mirror bị gián đoạn, vì OpenStack không có tầm nhìn vào trạng thái của site DR.
-- Giám sát phải đặt ở tầng Ceph: Cần theo dõi rbd mirror pool/image status và tích hợp cảnh báo tại Ceph; không thể chỉ dựa vào trạng thái sức khỏe của OpenStack để phát hiện lỗi replication.
-- RPO: Trong bài test, RPO = 0 byte — các write đã được xác nhận tại primary không bị mất; chúng chỉ chưa kịp replication sang secondary trong thời gian partition.
-- RTO: Mirror tự động khôi phục kết nối sau ~37 giây và hoàn tất đồng bộ backlog sau ~2 phút, không cần restart daemon thủ công.
+   ```bash
+   ceph osd blocklist add 172.31.18.188
+   ```
+
+   Hướng chặn ngược lại với bài test raw-RBD trước đó do Cinder chỉ có thể ghi vào Cluster 1.
+
+5. **Tạo tải ghi trên primary:** Dùng `rbd bench` trực tiếp lên image Ceph. Quá trình hoàn tất bình thường ở tốc độ ~14 MiB/s, chứng minh phân vùng mạng không ảnh hưởng gì đến hiệu năng ghi ở phía primary.
+
+6. **Kiểm tra đồng thời cả hai lớp trong lúc sự cố:**
+
+   - Tầng Ceph (trên Cluster 2): trạng thái `down+error`, mô tả `replay completed with error: (108) Cannot send after transport endpoint shutdown` (phát hiện sau ~5 giây).
+
+   - Tầng OpenStack (trên node DevStack):
+
+     ```bash
+     openstack volume show journal-cinder-test-vol -f value -c status
+     ```
+
+     Lệnh trả về `available`. Trạng thái Cinder không có bất kỳ tầm nhìn nào vào mối quan hệ mirror; nó chỉ phản ánh sức khỏe của Cluster 1, vốn không hề bị ảnh hưởng.
+
+7. **Xác nhận sức khỏe tổng thể của cụm:** Cả hai cụm không có cảnh báo nào liên quan đến mirror.
+
+8. **Gỡ bỏ blocklist và theo dõi tự phục hồi:** Gỡ blocklist vào lúc `16:22:19.012Z`. Trạng thái tự động khôi phục về `up+replaying` sau khoảng 37 giây mà không cần khởi động lại daemon thủ công.
+
+9. **Xác nhận lượng backlog đã được xử lý hết:** `entries_behind_primary` giảm dần từ 12.801 về 0 trong tổng thời gian ~2 phút.
+
+10. **Kiểm tra lại tầng OpenStack:** Trạng thái vẫn là `available` xuyên suốt từ đầu đến cuối bài test.
+
+#### Kết quả
+
+| Metric                              | Kết quả                                     |
+| ----------------------------------- | ------------------------------------------- |
+| **Thời gian phát hiện (Ceph)**      | ~5 giây                                     |
+| **Thời gian phát hiện (OpenStack)** | Không có — zero visibility                  |
+| **Ảnh hưởng I/O ở Primary**         | Không có — duy trì ~14 MiB/s                |
+| **Ảnh hưởng sức khỏe toàn cụm**     | Không có trên cả hai cụm                    |
+| **RPO**                             | 0 byte                                      |
+| **RTO – Khôi phục kết nối**         | ~37 giây, tự động, không cần restart daemon |
+| **RTO – Đồng bộ hoàn tất**          | ~2 phút                                     |
+
+#### Kết luận
+
+- OpenStack vẫn báo volume `available` và không cảnh báo khi RBD mirror bị gián đoạn, vì OpenStack không có tầm nhìn vào trạng thái của site DR.
+- Giám sát phải đặt ở tầng Ceph: cần theo dõi RBD mirror pool/image status và tích hợp cảnh báo tại Ceph; không thể chỉ dựa vào trạng thái sức khỏe của OpenStack để phát hiện lỗi replication.
+- **RPO:** Trong bài test, RPO = 0 byte — các write đã được xác nhận tại primary không bị mất; chúng chỉ chưa kịp replication sang secondary trong thời gian partition.
+- **RTO:** Mirror tự động khôi phục kết nối sau ~37 giây và hoàn tất đồng bộ backlog sau ~2 phút, không cần restart daemon thủ công.
+
+## One-way Snapshot
+
+### Scenario 1: Primary site failure
+
+#### Môi trường thực nghiệm
+
+| Thành phần            | Cấu hình                    |
+| --------------------- | --------------------------- |
+| **Storage backend**   | Ceph RBD                    |
+| **OpenStack service** | Cinder                      |
+| **Volume**            | `snapshot-cinder-test-vol2` |
+| **Cinder volume ID**  | `volume-0dc0cc12-...`       |
+| **Ceph pool**         | `volumes`                   |
+| **Replication**       | One-way, Site 1 → Site 2    |
+| **Mirroring mode**    | Snapshot                    |
+| **Snapshot schedule** | **Mỗi 2 phút**              |
+| **Site 1**            | Primary                     |
+| **Site 2**            | Secondary                   |
+| **Volume size**       | 2 GiB                       |
+| **Failover**          | Force promote Site 2        |
+
+#### Thực hiện
+
+- Snapshot mirroring với chu kỳ 2 phút được thiết lập cho Cinder volume trên Ceph.
+- Mô phỏng Site 1 failure cho thấy 25 MiB dữ liệu sau snapshot cuối chưa được replicate sang Site 2
+- Site 2 được force-promote thành Primary và tiếp tục ghi thành công sau khi xử lý stale watcher
+
+#### Quy trình
+
+1. **Bước 1 — Đồng bộ snapshot ban đầu**
+
+   Tại `17:02:00`, snapshot được tạo theo lịch 2 phút/lần và đồng bộ hoàn toàn sang Site 2.
+
+   Tại thời điểm này, hai bản sao đã đồng bộ.
+
+2. **Bước 2 — Tạo dữ liệu sau snapshot**
+
+   Tại `17:02:39.989Z`, ghi thêm 25 MiB vào volume.
+
+   Dữ liệu này phát sinh sau snapshot `17:02:00` và trước snapshot tiếp theo, nên chưa được replicate sang Site 2.
+
+3. **Bước 3 — Mô phỏng Site 1 failure**
+
+   Tại `17:02:49.760Z`, dừng toàn bộ Ceph services trên Site 1:
+
+   ```bash
+   systemctl stop ceph-<fsid>.target
+   ```
+
+   Site 1 không còn khả năng phục vụ volume.
+
+4. **Bước 4 — Kiểm tra dữ liệu trên Site 2**
+
+   Kiểm tra cho thấy snapshot cuối cùng được đồng bộ trên Site 2 vẫn là snapshot tại `17:02:00`.
+
+   Do đó, 25 MiB dữ liệu ghi sau snapshot cuối cùng chưa được replicate.
+
+5. **Bước 5 — Kiểm tra OpenStack/Cinder**
+
+   OpenStack vẫn hiển thị volume ở trạng thái:
+
+   ```text
+   available
+   ```
+
+   mặc dù Ceph primary tại Site 1 đã hoàn toàn mất kết nối.
+
+   Điều này cho thấy trạng thái volume ở tầng Cinder không tự động phản ánh việc backend Ceph primary đã gặp sự cố.
+
+6. **Bước 6 — Xử lý stale watcher**
+
+   Trước khi promote, kiểm tra `rbd status` và phát hiện watcher cũ:
+
+   ```text
+   client.144317
+   ```
+
+   Watcher được blocklist trước khi thực hiện promote nhằm tránh việc lệnh promote bị treo.
+
+7. **Bước 7 — Failover sang Site 2**
+
+   Thực hiện force-promote image trên Site 2.
+
+   Quá trình promote thành công trong khoảng 6,7 giây, chuyển image thành Primary.
+
+8. **Bước 8 — Kiểm tra khả năng ghi**
+
+   Ngay sau khi promote, thực hiện ghi thử vào volume.
+
+   Kết quả ghi thành công ngay lập tức, không cần restart `rbd-mirror`.
+
+   Điều này xác nhận Site 2 có thể tiếp tục phục vụ write sau khi Site 1 gặp sự cố
+
+#### Kết quả
+
+| Chỉ số                       | Kết quả                                                             |
+| ---------------------------- | ------------------------------------------------------------------- |
+| **RPO**                      | **25 MiB** — dữ liệu ghi sau snapshot cuối cùng chưa được replicate |
+| **RPO time window**          | ~50 giây, từ snapshot `17:02:00` đến failure `17:02:49.760Z`        |
+| **Snapshot schedule**        | **2 phút/lần**                                                      |
+| **RTO đến khi promote**      | ~52 giây từ thời điểm failure đến khi hoàn tất promote              |
+| **RTO đến khi ghi lại được** | ~64 giây                                                            |
+| **OpenStack/Cinder**         | Vẫn hiển thị `available` trong thời gian Site 1 bị lỗi              |
+| **Post-promote**             | Site 2 trở thành Primary và ghi thành công                          |
+| **Journaling feature**       | Đã loại bỏ hoàn toàn                                                |
+| **Restart mirror daemon**    | Không cần thiết                                                     |
+
+#### Kết luận
+
+- Hạn chế chính là RPO phụ thuộc vào chu kỳ snapshot; với lịch 2 phút, dữ liệu phát sinh giữa hai snapshot có nguy cơ chưa được bảo vệ tại Site 2 khi Site 1 đột ngột mất.
+
+### Scenario 2: Network partition
+
+#### Môi trường thử nghiệm
+
+| Thành phần              | Cấu hình                    |
+| ----------------------- | --------------------------- |
+| **Mô hình replication** | One-way Snapshot Mirroring  |
+| **Primary**             | Cluster 2 (Site 2)          |
+| **Secondary**           | Cluster 1 (Site 1)          |
+| **Storage backend**     | Ceph RBD                    |
+| **OpenStack service**   | Cinder                      |
+| **Volume kiểm thử**     | `snapshot-cinder-test-vol2` |
+| **Kích thước volume**   | 2 GiB                       |
+| **Snapshot schedule**   | 2 phút                      |
+
+#### Thực hiện
+
+1. **Bước 1 — Tạo Network Partition**
+
+   Tại `17:10:32.969Z`, blocklist daemon của Cluster 1 trên Cluster 2 để mô phỏng mất kết nối giữa hai site.
+
+   Hai cluster vẫn hoạt động, nhưng replication giữa chúng bị gián đoạn.
+
+2. **Bước 2 — Kiểm tra I/O trên Primary**
+
+   Trong thời gian partition, ghi 20 MiB vào volume trên Cluster 2 bằng `rbd bench`.
+
+   Kết quả ghi hoàn thành bình thường với tốc độ khoảng 27 MiB/s, cho thấy network partition không làm gián đoạn I/O tại Primary.
+
+3. **Bước 3 — Kiểm tra khả năng phát hiện lỗi**
+
+   Thực hiện một snapshot thủ công để buộc mirror thử đồng bộ trong thời gian partition.
+
+   Ceph chuyển sang trạng thái:
+
+   ```text
+   down+error
+   failed to refresh remote image
+   ```
+
+   Lỗi được phát hiện sau khoảng 3 giây.
+
+4. **Bước 4 — Kiểm tra OpenStack/Cinder**
+
+   Kiểm tra volume bằng:
+
+   ```bash
+   openstack volume show snapshot-cinder-test-vol2
+   ```
+
+   Volume vẫn ở trạng thái:
+
+   ```text
+   available
+   ```
+
+   Điều này cho thấy OpenStack/Cinder không phản ánh trực tiếp trạng thái replication hoặc network partition ở tầng Ceph.
+
+5. **Bước 5 — Khôi phục kết nối**
+
+   Tại `17:11:26.189Z`, remove blocklist để khôi phục kết nối giữa hai cluster.
+
+   Mirror tự động recovery và chuyển sang trạng thái:
+
+   ```text
+   up+replaying
+   ```
+
+   Sau khoảng 11 giây, quá trình recovery bắt đầu hoạt động bình thường.
+
+6. **Bước 6 — Kiểm tra đồng bộ dữ liệu**
+
+   Snapshot phát sinh trong thời gian partition được giữ lại và replicate sau khi kết nối được khôi phục.
+
+   Hai cluster đạt trạng thái đồng bộ hoàn toàn sau khoảng 37 giây kể từ thời điểm unblock.
+
+#### Kết quả
+
+| Chỉ số                             | Kết quả                                                         |
+| ---------------------------------- | --------------------------------------------------------------- |
+| **Detection time tại Ceph**        | ~3 giây                                                         |
+| **Detection tại OpenStack/Cinder** | Không phát hiện                                                 |
+| **Ảnh hưởng Primary I/O**          | Không đáng kể; ghi 20 MiB thành công ở ~27 MiB/s                |
+| **Ảnh hưởng cluster-wide**         | Không ghi nhận                                                  |
+| **RPO**                            | **0 bytes** — dữ liệu được đồng bộ lại sau khi kết nối phục hồi |
+| **RTO khôi phục replication**      | ~11 giây                                                        |
+| **RTO đồng bộ hoàn toàn**          | ~37 giây                                                        |
+| **Post-recovery**                  | Hai cluster hội tụ và đồng bộ hoàn toàn                         |
+
+#### Kết luận
+
+- Network partition không làm gián đoạn I/O tại Primary; chỉ làm quá trình replication tạm thời bị gián đoạn. Ceph phát hiện mất kết nối sau khoảng 3 giây và tự động tiếp tục replication khi network được khôi phục.
+- Trong thử nghiệm, dữ liệu phát sinh trong thời gian partition không bị mất và được đồng bộ lại hoàn toàn, đạt RPO = 0 bytes. Thời gian để mirror bắt đầu recovery khoảng 11 giây, và khoảng 37 giây để hai cluster hoàn toàn hội tụ.
+- Tương tự các scenario trước, OpenStack/Cinder vẫn hiển thị volume `available` trong thời gian replication bị gián đoạn, cho thấy trạng thái Cinder không phản ánh trực tiếp tình trạng replication giữa các Ceph site.
