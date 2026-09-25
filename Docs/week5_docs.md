@@ -11,6 +11,7 @@
 
 - Thực hiện primary site down.
 - Mô phỏng network partition giữa 2 Ceph cluster.
+- So sánh giữa 2 mode: One-way journal vs One-way snapshot
 
 ## Kết luận chung
 - Qua các scenario kiểm thử, Journal và Snapshot Mirroring đều đáp ứng được khả năng replication và recovery, nhưng có sự khác biệt rõ về cách đánh đổi giữa RPO, hiệu năng và vận hành
