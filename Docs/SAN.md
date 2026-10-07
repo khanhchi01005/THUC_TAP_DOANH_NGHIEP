@@ -1,4 +1,4 @@
-# Báo cáo so sánh tính năng tủ đĩa SAN và OpenStack Cinder
+# Báo cáo so sánh tính năng tủ đĩa SAN và OpenStack 
 
 ## 1. Tóm tắt
 
