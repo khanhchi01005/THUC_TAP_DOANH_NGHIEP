@@ -11,16 +11,14 @@ Phạm vi: Dell Unity XT 880, IBM FlashSystem 7300, Hitachi VSP G700, Hitachi VS
 - – tài liệu không nêu hoặc chưa xác nhận được
 
 ## Kết quả đối chiếu với tài liệu hãng
-
-
 Về license:
 
-- **Dell Unity XT:** phần mềm all-inclusive. Mã hóa (D@RE) là tùy chọn chọn lúc đặt hàng. FAST Cache và FAST VP chỉ có trên model hybrid (880, không phải 880F). metro node, VPLEX, RecoverPoint Advanced, AppSync Advanced, PowerPath mua riêng.
-- **IBM FS7300:** mọi tính năng đi kèm, trừ ảo hóa tủ ngoài (tính theo dung lượng) và mã hóa (feature code riêng). Product guide có ghi HyperSwap cần license remote mirroring, nên xác nhận lại với IBM khi đặt hàng.
-- **Hitachi G700:** gói Foundation gồm SVOS RF, Universal Volume Manager, Local Replication (Thin Image, ShadowImage), Data Mobility (Dynamic Tiering, active flash). Gói Advanced thêm Remote Replication (TrueCopy, Universal Replicator) và global-active device. Mã hóa cần license riêng cùng phần cứng back-end mã hóa.
-- **Hitachi E590H:** gói Base gồm Adaptive Data Reduction, Storage Virtualization, In-System Replication, Non-disruptive Migration. Gói Advanced thêm Remote Replication và global-active device.
-
-Chưa kiểm tra được: license thực tế đã mua trên từng tủ. Xem ở Unisphere (Unity), `lslicense` (IBM), màn hình License trong Storage Navigator (Hitachi).
+| Tủ | Kèm sẵn (Included) | Phải mua thêm (Optional / Add-on) |
+| :--- | :--- | :--- |
+| **Dell Unity 880** | Thin provisioning, data reduction, QoS, snapshot, thin clone, replication đồng bộ và bất đồng bộ, FAST Cache và FAST VP (cho model hybrid). | Metro node, VPLEX, RecoverPoint Advanced, AppSync Advanced, PowerPath; mã hóa (Encryption) là tùy chọn. |
+| **IBM FS7300** | Hầu hết mọi tính năng (All-inclusive). | Ảo hóa tủ ngoài (External Virtualization) và mã hóa. |
+| **Hitachi G700** | Gói Foundation: Universal Volume Manager (UVM), Local Replication, Data Mobility. | Gói Advanced: Remote replication và Global-Active Device (GAD); tính năng mã hóa cần phần cứng hỗ trợ mã hóa (back-end encryption) kèm license riêng. |
+| **Hitachi E590H** | Adaptive Data Reduction, Storage Virtualization, In-System Replication, Non-disruptive Migration. | Các gói Advanced tương tự dòng G700 (Remote replication, GAD...). |: license thực tế đã mua trên từng tủ. Xem ở Unisphere (Unity), `lslicense` (IBM), màn hình License trong Storage Navigator (Hitachi).
 
 ## Lưu ý 
 
