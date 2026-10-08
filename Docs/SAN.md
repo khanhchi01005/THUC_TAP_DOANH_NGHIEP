@@ -19,12 +19,16 @@
 Bảng chính có hai nửa:
 
 - **Trên tủ:** tủ có tính năng đó hay không (theo tài liệu hãng).
-- **OpenStack:** driver Cinder của hãng có điều khiển được tính năng đó hay không. Unity và IBM mỗi hãng một cột vì giống nhau ở cả ba bản. Hitachi tách ba cột theo bản.
+- **OpenStack:** driver Cinder của hãng có điều khiển được tính năng đó hay không. Mỗi hãng một cột, áp dụng cho cả ba bản Yoga, Antelope, Caracal.
+
+Driver Unity và driver IBM giống nhau ở cả ba bản. Driver Hitachi phần lớn cũng giống; những dòng chỉ có từ một bản nào đó được ghi rõ **"✔ từ Antelope"** hoặc **"✔ từ Caracal"** (các bản trước đó không có). Chi tiết ở mục 5.
 
 | Ký hiệu | Nghĩa |
 |:---:|---|
 | ✔ | Có |
 | ✖ | Không |
+| ✔ từ Antelope | Driver Hitachi có từ bản 2023.1 Antelope trở đi; Yoga không có |
+| ✔ từ Caracal | Driver Hitachi có từ bản 2024.1 Caracal trở đi; Yoga và Antelope không có |
 | ◐ | Một phần, hoặc có điều kiện (xem ghi chú) |
 | – | Tài liệu không nêu, hoặc chưa xác nhận được |
 | ¹ ² ³ | Số ghi chú ở mục 4 |
@@ -33,50 +37,50 @@ Bảng chính có hai nửa:
 
 ## 3. Bảng chính
 
-| Tính năng | Mô tả | Unity 880 | FS7300 | G700 | E590H | Driver Unity (cả 3 bản) | Driver IBM (cả 3 bản) | Driver Hitachi, bản Yoga | Driver Hitachi, bản Antelope | Driver Hitachi, bản Caracal |
-|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| | | **Trên tủ** | | | | **OpenStack** | | | | |
-| **A. Cơ bản** | | | | | | | | | | |
-| Tạo/xóa LUN, map/unmap host | Cấp phát volume từ pool và gán cho host | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Mở rộng LUN (kể cả đang attach) | Tăng dung lượng volume, không cần tạo lại | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ ¹ | ✔ ¹ | ✔ ¹ | ✔ ¹ |
-| Giao thức FC, iSCSI | Kết nối host tới tủ qua Fibre Channel hoặc iSCSI | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Thin provisioning | Cấp dung lượng logic lớn hơn vật lý, chỉ chiếm chỗ khi ghi | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Thick provisioning | Cấp phát đủ dung lượng vật lý ngay khi tạo | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | – | – | – |
-| Snapshot | Bản chụp volume tại một thời điểm | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Clone, tạo volume từ snapshot | Tạo volume mới độc lập từ volume hoặc snapshot | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Khôi phục LUN về snapshot | Đưa volume về đúng trạng thái của snapshot | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Chia sẻ LUN cho nhiều host | Một volume gán đồng thời cho nhiều host (cluster) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| **B. Hiệu năng và tiết kiệm dung lượng** | | | | | | | | | | |
-| NVMe phía host | Giao thức NVMe qua FC/Ethernet, độ trễ thấp hơn SCSI | ✖ | ✔ | ✖ | – ² | ✖ | ✖ | ✖ | ✖ | ✖ |
-| QoS giới hạn IOPS/băng thông | Đặt trần IOPS hoặc MB/s cho từng volume | ✔ | ✔ | ✔ | ✔ ³ | ✔ | ✔ | ✖ | ✖ | ✖ |
-| Nén dữ liệu | Nén inline để giảm dung lượng vật lý | ✔ | ✔ | ✔ ⁴ | ✔ | ✔ ⁵ | ✔ | ✖ | ✖ | ✔ ⁶ |
-| Dedup | Loại bỏ các block dữ liệu trùng lặp | ✔ | ✔ | ✔ ⁴ | ✔ | – | – | ✖ | ✖ | ✔ ⁶ |
-| Auto-tiering | Tự chuyển dữ liệu nóng/lạnh giữa các tầng đĩa | ✔ ⁷ | ✔ | ✔ | – ² | ✔ | ✔ | ◐ ⁸ | ◐ ⁸ | ◐ ⁸ |
-| SSD cache | Dùng SSD tăng tốc cho pool đĩa quay | ✔ ⁷ | ✖ | ◐ | – ² | ✖ | ✖ | ✖ | ✖ | ✖ |
-| **C. Bảo vệ dữ liệu và DR** | | | | | | | | | | |
-| Consistency group, snapshot nhóm | Snapshot nhất quán cho một nhóm volume | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Replication đồng bộ | Nhân bản sang tủ khác, RPO = 0, khoảng cách ngắn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ |
-| Replication bất đồng bộ | Nhân bản sang site xa, RPO tính bằng giây/phút | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ |
-| Replication theo consistency group | Nhân bản cả nhóm volume, giữ nhất quán | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ |
-| Failover/failback sang site DR | Chuyển vai trò chính sang tủ DR và chuyển ngược lại | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ |
-| Active-active metro cluster | Một volume đọc/ghi đồng thời ở 2 tủ, failover tự động | ◐ ⁹ | ✔ | ✔ | ✔ | ✖ | ✔ | ✖ | ◐ ¹⁰ | ✔ ¹¹ |
-| Mirror volume giữa 2 pool | Hai bản sao của volume ở 2 pool trong cùng tủ | – | ✔ | ✔ | ✔ | ✖ | ✔ | ✖ | ✖ | ✖ |
-| Replication 3 site | Bản đồng bộ gần kết hợp bản bất đồng bộ xa | – | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ |
-| Snapshot bất biến chống ransomware | Snapshot không thể sửa/xóa trước hạn lưu giữ | ✖ | ✔ | ◐ ¹² | ◐ ¹² | ✖ | ✖ | ✖ | ✖ | ✖ |
-| Backup volume không gián đoạn | Backup từ snapshot, không phải dừng volume | ✔ | ✔ | ✔ | ✔ | ✔ | – | ✔ | ✔ | ✔ |
-| Mã hóa dữ liệu trên tủ | Mã hóa dữ liệu lưu trên đĩa (data-at-rest) | ✔ | ✔ | ✔ | ✔ | ◐ ¹³ | ◐ ¹³ | ◐ ¹³ | ◐ ¹³ | ◐ ¹³ |
-| **D. Di chuyển và quản lý volume** | | | | | | | | | | |
-| Di chuyển LUN giữa pool do tủ thực hiện | Tủ tự chuyển dữ liệu sang pool khác khi host vẫn I/O | ✔ | ✔ | ✔ | ✔ ³ | ✔ | ✔ | ✖ | ✖ | ✔ ¹⁴ |
-| Đổi thuộc tính LUN online (retype) | Đổi thin/thick, nén, tier của volume đang dùng | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ◐ ¹⁵ | ◐ ¹⁵ | ◐ ¹⁵ |
-| Import LUN có sẵn (manage/unmanage) | Đưa LUN đã tồn tại trên tủ vào Cinder, không copy dữ liệu | ✔ | ✔ | ✔ | ✔ | – | ✔ | ✔ | ✔ | ✔ |
-| Ảo hóa tủ ngoài | Dùng LUN của tủ hãng khác làm dung lượng cho tủ này | ✖ | ✔ | ✔ | ✔ | ✖ | ◐ ¹³ | ◐ ¹³ | ◐ ¹³ | ◐ ¹³ |
-| **E. Vận hành phía OpenStack** | | | | | | | | | | |
-| Model được driver ghi tên | Tủ có trong danh sách hỗ trợ của tài liệu driver | | | | | ✔ | ✔ | G700 ✔ · E590H ✖ | G700 ✔ · E590H ✖ ¹⁶ | G700 ✔ · E590H ✖ ¹⁶ |
-| Nhiều pool trên một backend | Một backend Cinder quản lý nhiều pool của tủ | | | | | ✔ | ✔ | ✖ | ✔ | ✔ |
-| FC auto-zoning | Tự tạo/xóa zone trên SAN switch khi attach/detach | | | | | ✔ | – | – | ✔ | ✔ |
-| Port scheduler (chia WWN lên các cổng) | Đăng ký WWN của host lần lượt lên các cổng tủ | | | | | – | – | ✖ | ✔ | ✔ |
-| Chọn cổng tủ theo volume type | Chỉ định cổng tủ dùng cho từng loại volume | | | | | – | – | ✖ | ✖ | ✔ |
-| Cinder active/active HA | Chạy nhiều cinder-volume song song cho một backend | | | | | ✖ | ✖ | ✖ | ✖ | ✖ |
+| Tính năng | Mô tả | Unity 880 | FS7300 | G700 | E590H | Driver Unity | Driver IBM | Driver Hitachi |
+|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| | | **Trên tủ** | | | | **Qua OpenStack** | | |
+| **A. Cơ bản** | | | | | | | | |
+| Tạo/xóa LUN, map/unmap host | Cấp phát volume từ pool và gán cho host | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Mở rộng LUN (kể cả đang attach) | Tăng dung lượng volume, không cần tạo lại | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ ¹ | ✔ ¹ |
+| Giao thức FC, iSCSI | Kết nối host tới tủ qua Fibre Channel hoặc iSCSI | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Thin provisioning | Cấp dung lượng logic lớn hơn vật lý, chỉ chiếm chỗ khi ghi | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Thick provisioning | Cấp phát đủ dung lượng vật lý ngay khi tạo | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | – |
+| Snapshot | Bản chụp volume tại một thời điểm | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Clone, tạo volume từ snapshot | Tạo volume mới độc lập từ volume hoặc snapshot | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Khôi phục LUN về snapshot | Đưa volume về đúng trạng thái của snapshot | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Chia sẻ LUN cho nhiều host | Một volume gán đồng thời cho nhiều host (cluster) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| **B. Hiệu năng và tiết kiệm dung lượng** | | | | | | | | |
+| NVMe phía host | Giao thức NVMe qua FC/Ethernet, độ trễ thấp hơn SCSI | ✖ | ✔ | ✖ | – ² | ✖ | ✖ | ✖ |
+| QoS giới hạn IOPS/băng thông | Đặt trần IOPS hoặc MB/s cho từng volume | ✔ | ✔ | ✔ | ✔ ³ | ✔ | ✔ | ✖ |
+| Nén dữ liệu | Nén inline để giảm dung lượng vật lý | ✔ | ✔ | ✔ ⁴ | ✔ | ✔ ⁵ | ✔ | ✔ từ Caracal ⁶ |
+| Dedup | Loại bỏ các block dữ liệu trùng lặp | ✔ | ✔ | ✔ ⁴ | ✔ | – | – | ✔ từ Caracal ⁶ |
+| Auto-tiering | Tự chuyển dữ liệu nóng/lạnh giữa các tầng đĩa | ✔ ⁷ | ✔ | ✔ | – ² | ✔ | ✔ | ◐ ⁸ |
+| SSD cache | Dùng SSD tăng tốc cho pool đĩa quay | ✔ ⁷ | ✖ | ◐ | – ² | ✖ | ✖ | ✖ |
+| **C. Bảo vệ dữ liệu và DR** | | | | | | | | |
+| Consistency group, snapshot nhóm | Snapshot nhất quán cho một nhóm volume | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Replication đồng bộ | Nhân bản sang tủ khác, RPO = 0, khoảng cách ngắn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
+| Replication bất đồng bộ | Nhân bản sang site xa, RPO tính bằng giây/phút | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
+| Replication theo consistency group | Nhân bản cả nhóm volume, giữ nhất quán | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
+| Failover/failback sang site DR | Chuyển vai trò chính sang tủ DR và chuyển ngược lại | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
+| Active-active metro cluster | Một volume đọc/ghi đồng thời ở 2 tủ, failover tự động | ◐ ⁹ | ✔ | ✔ | ✔ | ✖ | ✔ | ✔ từ Caracal ¹⁰ ¹¹ |
+| Mirror volume giữa 2 pool | Hai bản sao của volume ở 2 pool trong cùng tủ | – | ✔ | ✔ | ✔ | ✖ | ✔ | ✖ |
+| Replication 3 site | Bản đồng bộ gần kết hợp bản bất đồng bộ xa | – | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ |
+| Snapshot bất biến chống ransomware | Snapshot không thể sửa/xóa trước hạn lưu giữ | ✖ | ✔ | ◐ ¹² | ◐ ¹² | ✖ | ✖ | ✖ |
+| Backup volume không gián đoạn | Backup từ snapshot, không phải dừng volume | ✔ | ✔ | ✔ | ✔ | ✔ | – | ✔ |
+| Mã hóa dữ liệu trên tủ | Mã hóa dữ liệu lưu trên đĩa (data-at-rest) | ✔ | ✔ | ✔ | ✔ | ◐ ¹³ | ◐ ¹³ | ◐ ¹³ |
+| **D. Di chuyển và quản lý volume** | | | | | | | | |
+| Di chuyển LUN giữa pool do tủ thực hiện | Tủ tự chuyển dữ liệu sang pool khác khi host vẫn I/O | ✔ | ✔ | ✔ | ✔ ³ | ✔ | ✔ | ✔ từ Caracal ¹⁴ |
+| Đổi thuộc tính LUN online (retype) | Đổi thin/thick, nén, tier của volume đang dùng | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ◐ ¹⁵ |
+| Import LUN có sẵn (manage/unmanage) | Đưa LUN đã tồn tại trên tủ vào Cinder, không copy dữ liệu | ✔ | ✔ | ✔ | ✔ | – | ✔ | ✔ |
+| Ảo hóa tủ ngoài | Dùng LUN của tủ hãng khác làm dung lượng cho tủ này | ✖ | ✔ | ✔ | ✔ | ✖ | ◐ ¹³ | ◐ ¹³ |
+| **E. Vận hành phía OpenStack** | | | | | | | | |
+| Model được driver ghi tên | Tủ có trong danh sách hỗ trợ của tài liệu driver | | | | | ✔ | ✔ | G700 ✔ · E590H ✖ ¹⁶ |
+| Nhiều pool trên một backend | Một backend Cinder quản lý nhiều pool của tủ | | | | | ✔ | ✔ | ✔ từ Antelope |
+| FC auto-zoning | Tự tạo/xóa zone trên SAN switch khi attach/detach | | | | | ✔ | – | ✔ từ Antelope |
+| Port scheduler (chia WWN lên các cổng) | Đăng ký WWN của host lần lượt lên các cổng tủ | | | | | – | – | ✔ từ Antelope |
+| Chọn cổng tủ theo volume type | Chỉ định cổng tủ dùng cho từng loại volume | | | | | – | – | ✔ từ Caracal |
+| Cinder active/active HA | Chạy nhiều cinder-volume song song cho một backend | | | | | ✖ | ✖ | ✖ |
 
 ---
 
@@ -148,7 +152,7 @@ Bảng chính có hai nửa:
 
 License thực tế trên từng tủ cần kiểm tra trực tiếp: Unisphere (Unity), lệnh `lslicense` (IBM), màn hình License trong Storage Navigator (Hitachi).
 
-## Phụ lục. Driver Cinder tương ứng
+## Phụ lục C. Driver Cinder tương ứng
 
 | Tủ | Driver Cinder | Yêu cầu |
 |---|---|---|
