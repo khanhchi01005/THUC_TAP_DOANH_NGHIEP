@@ -2,13 +2,6 @@
 
 **Tủ khảo sát:** Dell Unity XT 880 · IBM FlashSystem 7300 · Hitachi VSP G700 · Hitachi VSP E590H
 **Bản OpenStack:** Yoga (03/2022, Cinder 20) · 2023.1 Antelope (03/2023, Cinder 22) · 2024.1 Caracal (04/2024, Cinder 24)
-**Cách làm:** đối chiếu tài liệu, chưa kiểm thử trên thiết bị thật. Đã rà lại toàn bộ nguồn ngày 09/10/2026.
-
----
-
-## Điều chỉnh so với bản trước
-
-Bản trước ghi driver Hitachi có active-active (GAD), nén/dedup và di chuyển volume do tủ thực hiện **từ Caracal**. Kiểm tra lại với release notes chính thức của Cinder cho thấy các tính năng này được thêm **từ 2023.1 Antelope** (Cinder 22.0.0). Bản trước dựa vào trang tài liệu driver, mà trang này đến Caracal mới được cập nhật. Các kết luận liên quan trong bản này đã sửa theo release notes.
 
 ---
 
