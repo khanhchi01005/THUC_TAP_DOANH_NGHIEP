@@ -5,6 +5,43 @@
 
 ---
 
+## Khái niệm cơ bản
+
+### Tủ SAN
+
+**Tủ SAN** (storage array) là thiết bị lưu trữ tập trung: gom nhiều ổ cứng vào một nơi rồi cấp dung lượng cho các máy chủ qua mạng, thay cho việc mỗi máy chủ dùng ổ cứng riêng. **SAN** (Storage Area Network) là mạng riêng nối máy chủ với tủ.
+
+| Thuật ngữ | Nghĩa |
+|---|---|
+| Pool | Một nhóm ổ cứng gộp lại thành một kho dung lượng chung |
+| LUN (volume) | Một phần dung lượng cắt từ pool, cấp cho máy chủ. Với máy chủ, LUN hiện ra như một ổ cứng thông thường |
+| Host | Máy chủ được cấp LUN |
+| FC, iSCSI | Hai giao thức kết nối máy chủ với tủ: FC dùng cáp quang và switch riêng, iSCSI chạy trên mạng Ethernet |
+| Firmware | Phần mềm chạy bên trong tủ, quyết định tủ làm được những gì |
+| License | Giấy phép mở khóa tính năng trên tủ, một số phải mua thêm |
+
+### OpenStack, Cinder và driver
+
+**OpenStack** là phần mềm dựng đám mây riêng, cho phép tạo máy ảo, ổ đĩa, mạng theo yêu cầu. **Cinder** là dịch vụ của OpenStack chuyên cấp ổ đĩa cho máy ảo. Cinder không tự lưu dữ liệu mà điều phối một hệ thống lưu trữ phía sau, ở đây là tủ SAN.
+
+**Driver** là phần mềm trung gian giúp Cinder điều khiển được tủ SAN. Mỗi hãng tủ có cách ra lệnh riêng, nên hãng viết driver để dịch yêu cầu của Cinder thành lệnh mà tủ của họ hiểu.
+
+- **Ai viết:** hãng tủ viết và đóng góp vào mã nguồn OpenStack.
+- **Nằm ở đâu:** có sẵn trong Cinder, không cài riêng.
+- **Phiên bản:** mỗi bản OpenStack kèm một phiên bản driver; bản mới có thể được hãng bổ sung tính năng.
+
+
+### Nguyên tắc xuyên suốt báo cáo
+
+Một tính năng của tủ chỉ dùng được qua OpenStack khi đủ hai điều kiện:
+
+1. **Tủ có tính năng đó** (firmware hỗ trợ và có license).
+2. **Driver của hãng hỗ trợ tính năng đó** ở bản OpenStack đang dùng.
+
+Nếu tủ có mà driver chưa hỗ trợ, tính năng vẫn dùng được nhưng phải cấu hình trực tiếp trên tủ; OpenStack không điều khiển được. Bảng chính ở mục 3 chia hai nửa "Trên tủ" và "Qua OpenStack" theo đúng hai điều kiện này.
+
+---
+
 ## 1. Tóm tắt
 
 1. **Unity và FS7300:** tích hợp với OpenStack đầy đủ và **không đổi** qua cả ba bản.
@@ -21,7 +58,7 @@ Bảng chính có hai nửa:
 - **Trên tủ:** tủ có tính năng đó hay không (theo tài liệu hãng).
 - **Qua OpenStack:** driver Cinder của hãng có điều khiển được tính năng đó hay không. Mỗi hãng một cột, áp dụng cho cả ba bản Yoga, Antelope, Caracal.
 
-Driver Unity và driver IBM giống nhau ở cả ba bản. Driver Hitachi phần lớn cũng giống; những dòng chỉ có từ một bản nào đó được ghi rõ **"✔ từ Antelope"** hoặc **"✔ từ Caracal"** (các bản trước đó không có). Chi tiết ở mục 5.
+Driver Unity và driver IBM giống nhau ở cả ba bản. Driver Hitachi phần lớn cũng giống; những dòng chỉ có từ một bản nào đó được ghi rõ **"✔ từ Antelope"** hoặc **"✔ từ Caracal"** (các bản trước đó không có). Tóm tắt theo bản ở cuối mục 5.
 
 | Ký hiệu | Nghĩa |
 |:---:|---|
@@ -56,7 +93,7 @@ Driver Unity và driver IBM giống nhau ở cả ba bản. Driver Hitachi phầ
 | Nén dữ liệu | Nén inline để giảm dung lượng vật lý | ✔ | ✔ | ✔ ⁴ | ✔ | ✔ ⁵ | ✔ | ✔ từ Caracal ⁶ |
 | Dedup | Loại bỏ các block dữ liệu trùng lặp | ✔ | ✔ | ✔ ⁴ | ✔ | – | – | ✔ từ Caracal ⁶ |
 | Auto-tiering | Tự chuyển dữ liệu nóng/lạnh giữa các tầng đĩa | ✔ ⁷ | ✔ | ✔ | – ² | ✔ | ✔ | ◐ ⁸ |
-| SSD cache | Dùng SSD tăng tốc cho pool đĩa quay | ✔ ⁷ | ✖ | ◐ | – ² | ✖ | ✖ | ✖ |
+
 | **C. Bảo vệ dữ liệu và DR** | | | | | | | | |
 | Consistency group, snapshot nhóm | Snapshot nhất quán cho một nhóm volume | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Replication đồng bộ | Nhân bản sang tủ khác, RPO = 0, khoảng cách ngắn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
@@ -74,7 +111,11 @@ Driver Unity và driver IBM giống nhau ở cả ba bản. Driver Hitachi phầ
 | Đổi thuộc tính LUN online (retype) | Đổi thin/thick, nén, tier của volume đang dùng | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ◐ ¹⁵ |
 | Import LUN có sẵn (manage/unmanage) | Đưa LUN đã tồn tại trên tủ vào Cinder, không copy dữ liệu | ✔ | ✔ | ✔ | ✔ | – | ✔ | ✔ |
 | Ảo hóa tủ ngoài | Dùng LUN của tủ hãng khác làm dung lượng cho tủ này | ✖ | ✔ | ✔ | ✔ | ✖ | ◐ ¹³ | ◐ ¹³ |
-
+| **E. Vận hành phía OpenStack** | | | | | | | | |
+| Model được driver ghi tên | Tủ có trong danh sách hỗ trợ của tài liệu driver | | | | | ✔ | ✔ | G700 ✔ · E590H ✖ ¹⁶ |
+| Nhiều pool trên một backend | Một backend Cinder quản lý nhiều pool của tủ | | | | | ✔ | ✔ | ✔ từ Antelope |
+| FC auto-zoning | Tự tạo/xóa zone trên SAN switch khi attach/detach | | | | | ✔ | – | ✔ từ Antelope |
+| Cinder active/active HA | Chạy nhiều cinder-volume song song cho một backend | | | | | ✖ | ✖ | ✖ |
 
 ---
 
@@ -101,37 +142,29 @@ Driver Unity và driver IBM giống nhau ở cả ba bản. Driver Hitachi phầ
 
 ---
 
-## 5. So sánh ba bản OpenStack
+## 5. So sánh ba hãng
 
-### Giống nhau
+Phạm vi so sánh: tính năng có trên tủ và mức OpenStack điều khiển được. Báo cáo không đánh giá giá, hiệu năng và chất lượng hỗ trợ.
 
-- Driver Unity và IBM: danh sách thao tác, extra spec, tùy chọn cấu hình giống nhau ở cả ba bản (chỉ đổi tên trong tài liệu).
-- Ma trận hỗ trợ chính thức của Cinder cho cả ba driver giống hệt nhau ở cả ba bản.
-- Driver Hitachi: không có QoS, không có replication kiểu Cinder ở cả ba bản.
-- Không driver nào hỗ trợ NVMe phía host, snapshot bất biến, replication 3 site, Cinder active/active HA.
+| Tiêu chí | Dell Unity 880 | IBM FS7300 | Hitachi G700, E590H |
+|---|---|---|---|
+| Điểm mạnh nhất | Phần mềm trọn gói, ít phải mua thêm | Bộ tính năng đầy đủ nhất | Bảo vệ dữ liệu và dự phòng thảm họa mạnh trên tủ |
+| Nhân bản sang tủ dự phòng | Có, OpenStack điều khiển được | Có, OpenStack điều khiển được | Có (gói Advanced), phải cấu hình trên tủ |
+| Active-active | Phải mua thêm thiết bị, OpenStack không điều khiển | Có sẵn, OpenStack điều khiển được | Có (gói Advanced), OpenStack điều khiển được từ Caracal |
+| Nén, dedup | Có, OpenStack điều khiển được nén | Có, OpenStack điều khiển được nén | Có, OpenStack điều khiển được từ Caracal |
+| Giới hạn tốc độ (QoS) | Có, OpenStack điều khiển được | Có, OpenStack điều khiển được | Có, phải cấu hình trên tủ |
+| Snapshot chống ransomware | Không có cho ổ đĩa | Có, cấu hình trên tủ | Chưa xác nhận đầy đủ |
+| License | Gần như trọn gói | Trọn gói, trừ mã hóa và ảo hóa tủ ngoài | Chia gói cơ bản và gói Advanced |
+| Tích hợp OpenStack | Đầy đủ, ổn định | Đầy đủ nhất | Hạn chế, tốt dần theo từng bản |
+| Điểm yếu chính | Không có active-active sẵn | Một số tính năng phải mua thêm | Driver OpenStack thiếu QoS và nhân bản |
 
-### Khác nhau (chỉ ở driver Hitachi)
+**Nhận định:** IBM có bộ tính năng và mức tích hợp OpenStack đầy đủ nhất. Dell Unity đơn giản, trọn gói, tích hợp ổn định nhưng thiếu active-active sẵn có. Hitachi mạnh trên tủ nhưng quản lý qua OpenStack còn hạn chế.
 
-| Điểm khác | Yoga | Antelope | Caracal |
-|---|:---:|:---:|:---:|
-| Model dòng E được ghi tên | Chỉ E990 | + E590, E790, E1090, E1090H | Như Antelope |
-| Nhiều pool trên một backend | ✖ | ✔ | ✔ |
-| FC auto-zoning | ✖ | ✔ | ✔ |
-| Port scheduler | ✖ | ✔ | ✔ |
-| Chọn cổng theo volume type | ✖ | ✖ | ✔ |
-| Active-active (GAD) | ✖ | ◐ | ✔ |
-| Nén và dedup | ✖ | ✖ | ✔ |
-| Migration do tủ thực hiện | ✖ | ✖ | ✔ |
+### Về ba bản OpenStack
 
-### Nên chọn bản nào
-
-| Tình huống | Nhận định |
-|---|---|
-| Chỉ dùng Unity và FS7300 | Ba bản như nhau về tích hợp tủ; chọn theo lý do khác. |
-| Dùng G700, cần active-active hoặc nén/dedup qua OpenStack | Cần Caracal. |
-| Dùng G700, chỉ cần nhiều pool và auto-zoning | Antelope là đủ. |
-| Dùng E590H | Chưa bản nào ghi tên chính thức. Nếu vẫn định dùng thì chọn Antelope trở lên (bản có ghi E590) và xin Hitachi xác nhận trước. |
-| Cần QoS hoặc DR của Hitachi qua OpenStack | Chưa bản nào trong ba bản đáp ứng. |
+- **Unity và FS7300:** ba bản Yoga, Antelope, Caracal hỗ trợ như nhau.
+- **Hitachi:** bản càng mới càng đầy đủ. Caracal là bản đầu tiên điều khiển được active-active, nén/dedup và di chuyển ổ đĩa do tủ thực hiện.
+- **Hitachi ở cả ba bản:** QoS và nhân bản vẫn phải cấu hình trực tiếp trên tủ.
 
 ---
 
