@@ -26,10 +26,14 @@
 
 | Ký hiệu | Nghĩa |
 |:---:|---|
-| ✔ | Có, có tài liệu xác nhận |
-| ✖ | Không: tài liệu và mã nguồn driver không có chức năng này |
-| ? | Chưa tìm thấy tài liệu xác nhận, chưa kết luận được |
-| ¹ ² ³ | Số ghi chú|
+| ✔ | Có |
+| ✖ | Không |
+| ✔ từ Antelope | Driver Hitachi có từ bản 2023.1 Antelope trở đi; Yoga không có |
+| ✔ từ Caracal | Driver Hitachi có từ bản 2024.1 Caracal trở đi; Yoga và Antelope không có |
+| ◐ | Một phần, hoặc có điều kiện (xem ghi chú) |
+| – | Tài liệu không nêu, hoặc chưa xác nhận được |
+| ¹ ² ³ | Số ghi chú ở mục 4 |
+
 
 ---
 
@@ -37,54 +41,64 @@
 
 Áp dụng cho cả ba bản Yoga, Antelope, Caracal, trừ các ô ghi "từ Antelope". Cột driver của Hitachi áp dụng chính thức cho VSP G700; VSP E590H chưa được tài liệu driver ghi tên (mục 9).
 
-| Tính năng | Giải thích | Cinder yêu cầu | Tủ Dell Unity XT 880 | Tủ IBM FlashSystem 7300 | Tủ Hitachi VSP G700 | Tủ Hitachi VSP E590H | Driver Cinder Dell | Driver Cinder IBM | Driver Cinder Hitachi |
+| Tính năng | Mô tả | Cinder yêu cầu | Tủ Dell Unity XT 880 | Tủ IBM FlashSystem 7300 | Tủ Hitachi VSP G700 | Tủ Hitachi VSP E590H | Driver Cinder Dell | Driver Cinder IBM | Driver Cinder Hitachi |
 |---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| Tạo, xóa ổ đĩa (volume) | Cấp phát và thu hồi ổ đĩa từ pool | Bắt buộc | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Gắn, gỡ ổ đĩa cho máy chủ | Cho máy chủ nhìn thấy và dùng ổ đĩa, hoặc thu lại | Bắt buộc | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Tăng dung lượng ổ đĩa | Ví dụ từ 100 GB lên 200 GB, không phải tạo lại | Bắt buộc | ✔ ² | ✔ | ✔ | ✔ | ✔ | ✔ ¹ | ✔ ¹ |
-| Tạo, xóa snapshot | Bản chụp ổ đĩa tại một thời điểm | Bắt buộc | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Tạo ổ đĩa mới từ snapshot | Ổ đĩa mới từ một bản chụp | Bắt buộc | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Clone | Ổ đĩa mới độc lập từ ổ đĩa có sẵn | Bắt buộc | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Tăng dung lượng khi ổ đĩa đang được dùng | Không phải tắt máy ảo hay gỡ ổ đĩa ra | Tùy chọn | ✔ ² | ✔ | ✔ | ? ³ | ✔ | ✔ ¹ | ✔ ¹ |
-| Giới hạn tốc độ ổ đĩa (QoS) | Đặt trần IOPS hoặc MB/s cho từng ổ đĩa | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ ⁴ |
-| Nhân bản sang tủ dự phòng (replication) | Sao chép liên tục sang tủ thứ hai, kèm failover từ Cinder | Tùy chọn | ✔ | ✔ | ✔ ¹⁶ | ✔ ¹⁶ | ✔ ¹⁶ | ✔ ¹⁶ | ✖ |
-| Snapshot đồng thời nhiều ổ đĩa (consistency group) | Gom nhiều ổ đĩa để snapshot cùng thời điểm | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ ⁵ | ✔ |
-| Cấp phát mỏng (thin provisioning) | Cấp dung lượng logic lớn hơn vật lý | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Chuyển ổ đĩa sang pool khác (tủ tự chép) | Tủ tự chuyển dữ liệu sang pool khác (storage-assisted) | Tùy chọn | ✔ ⁷ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ từ Antelope ⁶ |
-| Multi-attach | Dùng cho hệ thống chạy cụm nhiều máy | Tùy chọn | ✔ | ✔ | ✔ | ? ³ | ✔ | ✔ | ✔ |
-| Revert to snapshot | Đưa ổ đĩa về trạng thái của bản chụp | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Thick provisioning | Cấp đủ dung lượng vật lý ngay khi tạo | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ ⁸ |
-| Nén dữ liệu | Nén để giảm dung lượng vật lý | Tùy chọn | ✔ ⁹ | ✔ | ✔ ¹⁰ | ✔ | ✔ chỉ pool toàn SSD ⁹ | ✔ | ✔ từ Antelope ¹² |
-| Loại dữ liệu trùng (dedup) | Dữ liệu giống nhau chỉ lưu một bản | Tùy chọn | ✔ | ✔ | ✔ ¹⁰ | ✔ | ✖ ¹¹ | ✖ ¹¹ | ✔ từ Antelope ¹² |
-| Automated tiering | Tự chuyển dữ liệu nóng, lạnh giữa các tầng ổ | Tùy chọn | ✔ ¹³ | ✔ | ✔ | ✔ ¹⁴ | ✔ | ✔ | ✖ ¹⁵ |
-| Replication đồng bộ | Ghi xong ở cả hai tủ mới báo thành công | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
-| Replication bất đồng bộ | Ghi ở tủ chính trước, chép sang tủ kia sau | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
-| Replication theo nhóm volume | Nhân bản và chuyển sang tủ dự phòng theo cả nhóm | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
-| Hai bản sao ở hai pool cùng tủ (mirror) | Một pool hỏng thì ổ đĩa vẫn còn bản ở pool kia | Tùy chọn | ? | ✔ | ✔ ¹⁷ | ✔ ¹⁷ | ✖ | ✔ | ✖ |
-
+| Tạo/xóa LUN, map/unmap host | Cấp phát volume từ pool và gán cho host | Required | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Mở rộng LUN (kể cả đang attach) | Tăng dung lượng volume, không cần tạo lại | Required | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ ¹ | ✔ ¹ |
+| Snapshot | Bản chụp volume tại một thời điểm | Required | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Clone, tạo volume từ snapshot | Tạo volume mới độc lập từ volume hoặc snapshot | Required | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Giao thức FC, iSCSI | Kết nối host tới tủ qua Fibre Channel hoặc iSCSI | Optional | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Thin provisioning | Cấp dung lượng logic lớn hơn vật lý, chỉ chiếm chỗ khi ghi | Optional | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Thick provisioning | Cấp phát đủ dung lượng vật lý ngay khi tạo | Optional | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | – |
+| Khôi phục LUN về snapshot | Đưa volume về đúng trạng thái của snapshot | Optional | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Chia sẻ LUN cho nhiều host | Một volume gán đồng thời cho nhiều host (cluster) | Optional | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| NVMe phía host | Giao thức NVMe qua FC/Ethernet, độ trễ thấp hơn SCSI | Optional | ✖ | ✔ | ✖ | – ² | ✖ | ✖ | ✖ |
+| QoS giới hạn IOPS/băng thông | Đặt trần IOPS hoặc MB/s cho từng volume | Optional | ✔ | ✔ | ✔ | ✔ ³ | ✔ | ✔ | ✖ |
+| Nén dữ liệu | Nén inline để giảm dung lượng vật lý | Optional | ✔ | ✔ | ✔ ⁴ | ✔ | ✔ ⁵ | ✔ | ✔ từ Caracal ⁶ |
+| Dedup | Loại bỏ các block dữ liệu trùng lặp | Optional | ✔ | ✔ | ✔ ⁴ | ✔ | – | – | ✔ từ Caracal ⁶ |
+| Auto-tiering | Tự chuyển dữ liệu nóng/lạnh giữa các tầng đĩa | Optional | ✔ ⁷ | ✔ | ✔ | – ² | ✔ | ✔ | ◐ ⁸ |
+| Consistency group, snapshot nhóm | Snapshot nhất quán cho một nhóm volume | Optional | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Replication đồng bộ | Nhân bản sang tủ khác, RPO = 0, khoảng cách ngắn | Optional | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
+| Replication bất đồng bộ | Nhân bản sang site xa, RPO tính bằng giây/phút | Optional | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
+| Replication theo consistency group | Nhân bản cả nhóm volume, giữ nhất quán | Optional | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
+| Failover/failback sang site DR | Chuyển vai trò chính sang tủ DR và chuyển ngược lại | Optional | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
+| Active-active metro cluster | Một volume đọc/ghi đồng thời ở 2 tủ, failover tự động | Optional | ◐ ⁹ | ✔ | ✔ | ✔ | ✖ | ✔ | ✔ từ Caracal ¹⁰ ¹¹ |
+| Mirror volume giữa 2 pool | Hai bản sao của volume ở 2 pool trong cùng tủ | Optional | – | ✔ | ✔ | ✔ | ✖ | ✔ | ✖ |
+| Replication 3 site | Bản đồng bộ gần kết hợp bản bất đồng bộ xa | Optional | – | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ |
+| Snapshot bất biến chống ransomware | Snapshot không thể sửa/xóa trước hạn lưu giữ | Optional | ✖ | ✔ | ◐ ¹² | ◐ ¹² | ✖ | ✖ | ✖ |
+| Backup volume không gián đoạn | Backup từ snapshot, không phải dừng volume | Optional | ✔ | ✔ | ✔ | ✔ | ✔ | – | ✔ |
+| Mã hóa dữ liệu trên tủ | Mã hóa dữ liệu lưu trên đĩa (data-at-rest) | Optional | ✔ | ✔ | ✔ | ✔ | ◐ ¹³ | ◐ ¹³ | ◐ ¹³ |
+| Di chuyển LUN giữa pool do tủ thực hiện | Tủ tự chuyển dữ liệu sang pool khác khi host vẫn I/O | Optional | ✔ | ✔ | ✔ | ✔ ³ | ✔ | ✔ | ✔ từ Caracal ¹⁴ |
+| Đổi thuộc tính LUN online (retype) | Đổi thin/thick, nén, tier của volume đang dùng | Optional | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ◐ ¹⁵ |
+| Import LUN có sẵn (manage/unmanage) | Đưa LUN đã tồn tại trên tủ vào Cinder, không copy dữ liệu | Optional | ✔ | ✔ | ✔ | ✔ | – | ✔ | ✔ |
+| Ảo hóa tủ ngoài | Dùng LUN của tủ hãng khác làm dung lượng cho tủ này | Optional | ✖ | ✔ | ✔ | ✔ | ✖ | ◐ ¹³ | ◐ ¹³ |
+| Model được driver ghi tên | Tủ có trong danh sách hỗ trợ của tài liệu driver | Optional | | | | | ✔ | ✔ | G700 ✔ · E590H ✖ ¹⁶ |
+| Nhiều pool trên một backend | Một backend Cinder quản lý nhiều pool của tủ | Optional | | | | | ✔ | ✔ | ✔ từ Antelope |
+| FC auto-zoning | Tự tạo/xóa zone trên SAN switch khi attach/detach | Optional | | | | | ✔ | – | ✔ từ Antelope |
+| Cinder active/active HA | Chạy nhiều cinder-volume song song cho một backend | Optional | | | | | ✖ | ✖ | ✖ |
 ---
 
 ## Ghi chú
 
 | # | Nội dung |
 |:---:|---|
-| ¹ | Driver IBM và Hitachi: ổ đĩa đang có snapshot thì không tăng dung lượng được, phải xóa snapshot trước. |
-| ² | Tủ Dell: không tăng được dung lượng ổ đĩa nằm trong nhóm đang nhân bản đồng bộ. |
-| ³ | Tủ Hitachi VSP E590H: sổ tay có mục tăng dung lượng ổ đĩa và gán ổ đĩa cho nhóm máy chủ, nhưng chưa tìm thấy câu ghi rõ làm được khi máy chủ đang dùng, hoặc một ổ đĩa cho nhiều máy cùng lúc. |
-| ⁴ | Tủ Hitachi có QoS (Server Priority Manager), nhưng mã nguồn driver Hitachi khai báo không hỗ trợ QoS; phải cấu hình trên tủ. |
-| ⁵ | Driver IBM từ Antelope có thêm kiểu nhóm mới (volume group), cần firmware 8.5.1.0 trở lên. |
-| ⁶ | Driver Hitachi: chỉ chuyển trong cùng một tủ. Release notes và mã nguồn ghi có từ Antelope, nhưng Cinder Support Matrix chưa cập nhật mục này, nên cần kiểm thử trước khi dùng. |
-| ⁷ | Tủ Dell: sau khi chuyển xong, các snapshot của ổ đĩa bị xóa. |
-| ⁸ | Driver Hitachi chỉ tạo ổ đĩa thin (mã nguồn khai báo không hỗ trợ thick). |
-| ⁹ | Driver Dell: chỉ tạo được ổ đĩa nén trên pool toàn SSD. Tủ Dell: từ phiên bản OE 5.2 nén được cả trên pool lai nếu tầng SSD chiếm từ 10% dung lượng pool. |
-| ¹⁰ | Tủ Hitachi VSP G700: tài liệu firmware 88-01 ghi nén/dedup chỉ áp dụng cho ổ SSD lắp trong tủ; tài liệu SVOS RF 9.8 ghi dùng được với mọi loại ổ. Cần kiểm tra theo firmware thực tế. |
-| ¹¹ | Driver Dell và IBM không có tùy chọn dedup; driver Dell chỉ có tùy chọn "ổ đĩa nén". |
-| ¹² | Driver Hitachi: nén và dedup bật cùng nhau qua `hbsd:capacity_saving=deduplication_compression`, không tách riêng; cần license dedup/compression và phải bật trước trên pool. |
-| ¹³ | Tủ Dell: FAST VP và FAST Cache chỉ có trên model lai (880, không phải 880F), cần license FAST VP. |
-| ¹⁴ | Tủ Hitachi VSP E590H: sổ tay có mô tả Dynamic Tiering, nhưng datasheet gói phần mềm ghi gói này chỉ kèm sẵn cho dòng F/G, nên cần hỏi Hitachi về license. |
-| ¹⁵ | Driver Hitachi không có tùy chọn phân tầng: phân tầng do tủ tự chạy theo pool, Cinder không đặt được chính sách cho từng ổ đĩa. |
-| ¹⁶ | Nhân bản cần hai tủ cùng hãng. Driver Dell và IBM: mỗi kết nối chỉ khai báo được một tủ dự phòng. Tủ Hitachi cần gói license Advanced. |
-| ¹⁷ | Tủ Hitachi dùng ShadowImage, cách hoạt động không hoàn toàn giống Volume Mirroring của IBM. Chỉ driver IBM có tùy chọn này. |
+| ¹ | Driver IBM và Hitachi không extend được volume đang có snapshot. |
+| ² | E590H: bảng thông số chỉ ghi cổng host FC và iSCSI; Dynamic Tiering không có trong danh sách tính năng đi kèm. Chưa xác nhận được, cần hỏi Hitachi. |
+| ³ | Có theo SVOS RF dùng chung cho cả dòng VSP, nhưng tài liệu riêng của E590H không ghi rõ. |
+| ⁴ | G700: nén/dedup (capacity saving) chỉ áp dụng trên ổ flash nội bộ. |
+| ⁵ | Driver Unity: chỉ tạo được volume nén trên pool all-flash. |
+| ⁶ | Driver Hitachi Caracal: nén và dedup bật cùng nhau qua `hbsd:capacity_saving=deduplication_compression`. Cần bật trước trên pool và có license dedup/compression. |
+| ⁷ | Unity: FAST VP và FAST Cache chỉ có trên model hybrid (880, không phải 880F). |
+| ⁸ | Tiering của Hitachi chạy theo pool trên tủ; Cinder không đặt được chính sách tier cho từng volume. |
+| ⁹ | Unity không có active-active gốc cho block; cần mua thêm metro node hoặc VPLEX. |
+| ¹⁰ | Tài liệu Caracal viết GAD có "từ bản 2023.1", nhưng tài liệu driver bản 2023.1 không mô tả GAD và không có tùy chọn `hitachi_mirror_*`. Coi Caracal là bản chắc chắn có. |
+| ¹¹ | GAD qua Cinder (Caracal): dùng `hbsd:topology=active_active_mirror_volume`. Giới hạn: không dùng ALUA; volume GAD không bật được nén/dedup, không migrate bằng tủ, không manage/unmanage; G700 cần firmware 88-03-21 trở lên. |
+| ¹² | Hitachi có Data Retention Utility trong SVOS RF; chưa xác nhận được giải pháp snapshot bất biến hoàn chỉnh. |
+| ¹³ | Trong suốt với Cinder: bật trên tủ thì volume được hưởng, nhưng Cinder không điều khiển. Riêng mã hóa, Cinder có cơ chế mã hóa volume riêng (LUKS). |
+| ¹⁴ | Chỉ migrate trong cùng một tủ. Tài liệu driver ghi có, nhưng ma trận hỗ trợ của Cinder vẫn ghi "missing" cho Hitachi; nên thử trước trên môi trường test. |
+| ¹⁵ | Driver Hitachi không có retype riêng; đổi loại volume thông qua migrate. |
+| ¹⁶ | Từ Antelope, driver ghi tên E590 (all-flash), E790, E1090, E1090H; E590H vẫn không có tên. "✖" ở đây nghĩa là không được ghi tên, không có nghĩa là đã xác định không chạy được. Xem mục 6. |
+
 
 ---
 
