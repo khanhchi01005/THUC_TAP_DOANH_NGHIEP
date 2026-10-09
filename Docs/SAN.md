@@ -34,30 +34,28 @@
 | Tăng dung lượng ổ đĩa | Ví dụ từ 100 GB lên 200 GB, không phải tạo lại | Bắt buộc | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Tạo, xóa snapshot | Bản chụp ổ đĩa tại một thời điểm | Bắt buộc | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Tạo ổ đĩa mới từ snapshot | Ổ đĩa mới từ một bản chụp | Bắt buộc | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Nhân đôi ổ đĩa (clone) | Ổ đĩa mới độc lập từ ổ đĩa có sẵn | Bắt buộc | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Clone | Ổ đĩa mới độc lập từ ổ đĩa có sẵn | Bắt buộc | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Tăng dung lượng khi ổ đĩa đang được dùng | Không phải tắt máy ảo hay gỡ ổ đĩa ra | Tùy chọn | ✔ | ✔ | ✔ | ? | ✔ | ✔ | ✔ |
 | Giới hạn tốc độ ổ đĩa (QoS) | Đặt trần IOPS hoặc MB/s cho từng ổ đĩa | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
 | Nhân bản sang tủ dự phòng (replication) | Sao chép liên tục sang tủ thứ hai, kèm failover từ Cinder | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
 | Snapshot đồng thời nhiều ổ đĩa (consistency group) | Gom nhiều ổ đĩa để snapshot cùng thời điểm | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Cấp phát mỏng (thin provisioning) | Cấp dung lượng logic lớn hơn vật lý | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Chuyển ổ đĩa sang pool khác (tủ tự chép) | Tủ tự chuyển dữ liệu sang pool khác (storage-assisted) | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ từ Antelope |
-| Một ổ đĩa gắn cho nhiều máy (multi-attach) | Dùng cho hệ thống chạy cụm nhiều máy | Tùy chọn | ✔ | ✔ | ✔ | ? | ✔ | ✔ | ✔ |
-| Khôi phục ổ đĩa về snapshot | Đưa ổ đĩa về trạng thái của bản chụp | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Cấp phát đủ dung lượng (thick provisioning) | Cấp đủ dung lượng vật lý ngay khi tạo | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
+| Multi-attach | Dùng cho hệ thống chạy cụm nhiều máy | Tùy chọn | ✔ | ✔ | ✔ | ? | ✔ | ✔ | ✔ |
+| Revert to snapshott | Đưa ổ đĩa về trạng thái của bản chụp | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Thick provisioning | Cấp đủ dung lượng vật lý ngay khi tạo | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
 | Nén dữ liệu | Nén để giảm dung lượng vật lý | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ chỉ pool toàn SSD | ✔ | ✔ từ Antelope |
 | Loại dữ liệu trùng (dedup) | Dữ liệu giống nhau chỉ lưu một bản | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✔ từ Antelope |
-| Tự phân tầng ổ nhanh, ổ chậm (tiering) | Tự chuyển dữ liệu nóng, lạnh giữa các tầng ổ | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
-| Nhân bản đồng bộ | Ghi xong ở cả hai tủ mới báo thành công | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
-| Nhân bản bất đồng bộ | Ghi ở tủ chính trước, chép sang tủ kia sau | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
-| Nhân bản cả nhóm ổ đĩa | Nhân bản và chuyển sang tủ dự phòng theo cả nhóm | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
-| Hai tủ cùng phục vụ một ổ đĩa (active-active) | Một tủ hỏng thì tủ kia chạy tiếp, không gián đoạn | Tùy chọn | Mua thêm | ✔ | ✔ | ✔ | ✖ | ✔ | ✔ từ Antelope |
+| Automated tiering | Tự chuyển dữ liệu nóng, lạnh giữa các tầng ổ | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
+| Replication đồng bộ | Ghi xong ở cả hai tủ mới báo thành công | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
+| Replication bất đồng bộ | Ghi ở tủ chính trước, chép sang tủ kia sau | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
+| Replication theo nhóm volume | Nhân bản và chuyển sang tủ dự phòng theo cả nhóm | Tùy chọn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
 | Hai bản sao ở hai pool cùng tủ (mirror) | Một pool hỏng thì ổ đĩa vẫn còn bản ở pool kia | Tùy chọn | ? | ✔ | ✔ | ✔ | ✖ | ✔ | ✖ |
 
 ---
 
 ## Lưu ý khi đọc bảng
 
-**Chung**
 
 - **Dấu "?" không có nghĩa là "không có"**, chỉ là chưa tìm thấy tài liệu ghi rõ. Bảng còn 3 ô "?".
 - **Dấu ✖ ở cột Driver** nghĩa là muốn dùng tính năng đó thì phải cấu hình trực tiếp trên tủ.
