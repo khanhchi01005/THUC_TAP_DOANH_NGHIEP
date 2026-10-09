@@ -30,7 +30,6 @@
 - **Nằm ở đâu:** có sẵn trong Cinder, không cài riêng.
 - **Phiên bản:** mỗi bản OpenStack kèm một phiên bản driver; bản mới có thể được hãng bổ sung tính năng.
 
-
 ### Nguyên tắc xuyên suốt báo cáo
 
 Một tính năng của tủ chỉ dùng được qua OpenStack khi đủ hai điều kiện:
@@ -93,7 +92,6 @@ Driver Unity và driver IBM giống nhau ở cả ba bản. Driver Hitachi phầ
 | Nén dữ liệu | Nén inline để giảm dung lượng vật lý | ✔ | ✔ | ✔ ⁴ | ✔ | ✔ ⁵ | ✔ | ✔ từ Caracal ⁶ |
 | Dedup | Loại bỏ các block dữ liệu trùng lặp | ✔ | ✔ | ✔ ⁴ | ✔ | – | – | ✔ từ Caracal ⁶ |
 | Auto-tiering | Tự chuyển dữ liệu nóng/lạnh giữa các tầng đĩa | ✔ ⁷ | ✔ | ✔ | – ² | ✔ | ✔ | ◐ ⁸ |
-
 | **C. Bảo vệ dữ liệu và DR** | | | | | | | | |
 | Consistency group, snapshot nhóm | Snapshot nhất quán cho một nhóm volume | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Replication đồng bộ | Nhân bản sang tủ khác, RPO = 0, khoảng cách ngắn | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
