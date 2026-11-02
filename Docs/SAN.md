@@ -11,7 +11,7 @@
 2. **Dell Unity và IBM FlashSystem 7300:** driver hỗ trợ gần hết chức năng tùy chọn (QoS, nhân bản, di chuyển volume do tủ thực hiện), ổn định qua ba bản.
 3. **Hitachi:** bước thay đổi lớn là từ Yoga lên Antelope. Antelope thêm GAD, nén/dedup, di chuyển volume do tủ thực hiện, retype, nhiều pool. QoS và nhân bản kèm failover thì cả ba bản đều chưa có.
 4. **Antelope so với Caracal:** với ba driver này không có tính năng mới, chỉ có sửa lỗi.
-5. **VSP E590H:** sổ tay của Hitachi xác nhận tủ có các tính năng trong bảng. Tài liệu driver upstream ở cả ba bản không ghi tên model này, nhưng Product Compatibility Guide của Hitachi ghi E590H được hỗ trợ trên Yoga, Antelope, Caracal. Còn thiếu thông tin firmware tối thiểu (mục 7).
+5. **VSP E590H:** sổ tay của Hitachi xác nhận tủ có các tính năng trong bảng. Tài liệu driver upstream ở cả ba bản không ghi tên model này, nhưng Product Compatibility Guide của Hitachi ghi E590H được hỗ trợ trên Yoga, Antelope, Caracal. Các tài liệu này không ghi firmware tối thiểu (mục 7).
 
 ---
 
@@ -216,7 +216,7 @@ Cần phân biệt hai mức:
 ### Đề xuất
 
 1. Lưu lại bản PDF/CSV xuất từ Product Compatibility Guide (trang có sẵn nút xuất) làm bằng chứng hỗ trợ.
-2. Hỏi Hitachi hoặc đối tác cung cấp tủ về firmware tối thiểu cho E590H và phiên bản driver cụ thể ứng với từng bản OpenStack.
+2. Firmware tối thiểu của E590H cho driver OpenStack: cả tài liệu upstream lẫn Product Compatibility Guide đều không ghi. Hitachi hoặc đối tác cung cấp tủ là nguồn xác nhận.
 3. Với Yoga, tính năng driver vẫn giới hạn theo bản Yoga (mục 5, 6); muốn có GAD, nén/dedup qua OpenStack thì cần Antelope trở lên.
 4. Nếu có sẵn tủ và môi trường thử nghiệm, test các thao tác cơ bản (tạo, gán, mở rộng, snapshot, clone) trước khi dùng thật.
 

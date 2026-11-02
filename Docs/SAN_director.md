@@ -16,6 +16,7 @@
    - Driver **Cisco** vẫn ghi là *supported*, nhưng không thấy CI của Cisco chạy từ khoảng năm 2019.
    - Mã nguồn của cả hai driver giống hệt nhau ở Yoga, Antelope và Caracal (đã so sánh từng file).
 4. **Đề xuất:** zone bằng tay (pre-zoning) mỗi khi thêm compute node, và không bật auto-zoning. Nếu buộc phải bật auto-zoning thì xem mục 5.4 và thử trên lab trước.
+5. Các tính năng chính của director/switch (không phụ thuộc OpenStack): **mục 6**.
 
 ---
 
@@ -40,7 +41,7 @@
 | | Director | Switch cố định |
 |---|---|---|
 | Số cổng | Hàng trăm (Brocade X7-8: 512; Cisco MDS 9718: 768) | 48–128 |
-| Dự phòng bên trong | 2 card điều khiển, nhiều nguồn và quạt, nâng cấp firmware không gián đoạn | 2 nguồn. Cisco 9148V/9396V có nâng cấp không gián đoạn (ISSU) |
+| Dự phòng bên trong | 2 card điều khiển, nhiều nguồn và quạt, nâng cấp firmware không gián đoạn | 2 nguồn. Nâng cấp firmware vẫn không làm dừng dữ liệu: Brocade khởi động lại phần điều khiển (HA reboot), Cisco 9148V/9396V có ISSU |
 | Hãng công bố | Thiết kế cho 99.999% (đây là mục tiêu thiết kế, không phải SLA) | Cisco 9148V/9396V cũng công bố 99.999% |
 | Giá | Cao | Thấp hơn nhiều |
 
@@ -144,20 +145,28 @@ Cả hai driver đều tạo một zone cho mỗi cặp (WWPN host, WWPN tủ), 
 
 ---
 
-## 6. Câu hỏi khi tiếp quản hệ thống
+## 6. Tính năng của director/switch
 
-| # | Câu hỏi | Kiểm tra ở đâu |
-|:---:|---|---|
-| 1 | Đang dùng director hay switch? Hãng, model, bao nhiêu cổng đã có license? | Đội SAN; SANnav hoặc NDFC |
-| 2 | Phiên bản FOS/NX-OS? Có nằm trong danh sách tương thích của hãng tủ không? | Brocade: lệnh `version`. Cisco: `show version` |
-| 3 | Đã có fabric A/B chưa? Mỗi host và mỗi controller tủ có cổng ở cả hai fabric chưa? | Sơ đồ đấu nối; Brocade `nsshow`, Cisco `show fcns database vsan <id>` |
-| 4 | Có dùng Virtual Fabrics hoặc nhiều VSAN không? | Cấu hình switch |
-| 5 | Đang zone bằng tay hay auto-zoning? | `cinder.conf` có `zoning_mode = fabric` không; trên switch có zone tên bắt đầu bằng `openstack` không |
-| 6 | Nếu đang auto-zoning: driver nào, log có cảnh báo "unsupported" không? | `cinder.conf`, log `cinder-volume` |
-| 7 | Nếu zone bằng tay: quy trình khi thêm node hoặc thay HBA là gì? | Tài liệu vận hành, đội SAN |
-| 8 | Ai có quyền sửa zone? | Danh sách user trên switch |
-| 9 | Hợp đồng hỗ trợ phần cứng và phần mềm còn hạn không? | Bộ phận mua sắm |
-| 10 | Có lab để thử trước không? | Trưởng dự án |
+Áp dụng cho cả director và switch cố định của Brocade và Cisco. Tên gọi riêng của từng hãng ghi trong ngoặc.
+
+Đây là tính năng nằm ở switch, dùng được mà không cần OpenStack. Chúng không trùng với [support matrix của Cinder](https://docs.openstack.org/cinder/yoga/reference/support-matrix.html): bảng đó chỉ gồm tính năng của driver tủ (QoS, replication, thin provisioning, multi-attach…, xem `SAN.md`), không có dòng nào về switch, zoning hay fabric.
+
+### 6.1 Cơ bản
+
+- **Zoning:** quy định cổng host nào được thấy cổng tủ nào (mục 2). Có thể đặt tên dễ nhớ (alias) cho từng WWPN. Brocade có Peer Zoning, Cisco có Smart Zoning: gom nhiều host và tủ vào một zone, các host vẫn không thấy nhau, nhờ vậy số zone ít đi nhiều.
+- **Hai fabric A/B:** mỗi host và mỗi tủ nối vào cả hai fabric. Mất một fabric thì host tự chuyển sang fabric còn lại (mục 3).
+- **Gộp đường nối giữa hai switch** (Brocade: ISL Trunking, Cisco: port-channel): nhiều sợi cáp giữa hai switch chạy như một đường, nhanh hơn và đứt một sợi vẫn chạy. Brocade cần license ISL Trunking (có sẵn trong gói Enterprise của Gen 7).
+- **Nâng cấp firmware không dừng dữ liệu:** dữ liệu vẫn chạy trong lúc nâng cấp. Director làm được nhờ có 2 card điều khiển; switch cố định Brocade chỉ khởi động lại phần điều khiển; Cisco gọi là ISSU, có cả trên 9148V/9396V. Director chỉ còn một card điều khiển thì nâng cấp **sẽ** làm dừng dữ liệu.
+- **Sao lưu cấu hình:** xuất toàn bộ cấu hình, gồm cả zone, ra server ngoài để khôi phục khi cần.
+- **Quản trị:** phân quyền theo vai trò (ví dụ người chỉ được xem, người chỉ được sửa zone), đăng nhập qua hệ thống tài khoản tập trung (RADIUS, TACACS+, LDAP), gửi log và cảnh báo về server giám sát (syslog, SNMP).
+
+### 6.2 Nâng cao
+
+- **Chia một switch thành nhiều fabric** (Brocade: Virtual Fabrics, Cisco: VSAN): mỗi fabric logic có zone riêng, sửa ở fabric này không ảnh hưởng fabric kia. Zone driver Brocade của Cinder không hỗ trợ tính năng này khi chạy qua SSH (mục 5.2).
+- **Tự zone (chỉ Cisco, gọi là Autozone):** switch tự zone mỗi host với tủ, kể cả host mới cắm vào. Chỉ dùng được khi cả fabric chỉ có **một switch**. Có trên 9148V từ NX-OS 9.3(1), 9396V từ 9.4(1), và các switch dòng T. Với SAN nhỏ, đây là cách thay cho auto-zoning của Cinder.
+- **Tự cảnh báo lỗi đường truyền** (Brocade: MAPS, Cisco: Port-monitor): switch tự theo dõi lỗi trên từng cổng, gửi cảnh báo khi vượt ngưỡng, có thể tự tắt cổng hỏng. Brocade cần license Fabric Vision để dùng đầy đủ.
+- **Cô lập host chậm** (Brocade: SDDQ, Cisco: DIRL): một host nhận dữ liệu chậm, ví dụ card HBA 8G nhận từ tủ 32G, có thể làm chậm cả các host khác dùng chung đường. Switch tự phát hiện host đó và hạn chế nó lại để các host khác chạy bình thường. Brocade chuyển dữ liệu tới host chậm sang làn ưu tiên thấp; Cisco giảm tốc độ của host đó (từ NX-OS 8.5(1), không cần license riêng).
+- **Điều khiển bằng script** (Brocade: REST API, Cisco: NX-API; cả hai có module Ansible): tạo zone bằng script mỗi khi thêm compute node, thay cho việc gõ tay hoặc dùng auto-zoning của Cinder.
 
 ---
 
@@ -172,5 +181,9 @@ Cả hai driver đều tạo một zone cho mỗi cặp (WWPN host, WWPN tủ), 
 - CI Cisco: [Gerrit, các bình luận của tài khoản 22804](https://review.opendev.org/q/commentby:22804)
 
 **Brocade:** [X8 Product Brief](https://docs.broadcom.com/doc/X8-Director-PB) · [X7 Product Brief](https://docs.broadcom.com/doc/X7-Director-PB) · [X6 Data Sheet](https://docs.broadcom.com/doc/GA-DS-5721) · [G720](https://docs.broadcom.com/doc/G720-Switch-PB) · [G730](https://docs.broadcom.com/doc/G730-Switch-PB) · [G620 FAQ](https://docs.broadcom.com/doc/GA-FAQ-6312)
+
+**Tính năng (mục 6):**
+- Cisco: [Autozone (brochure)](https://www.cisco.com/c/en/us/products/collateral/storage-networking/mds-9700-series-multilayer-directors/brochure-c02-740842.html) · [Datasheet 9148V (ISSU, license, NX-API)](https://www.cisco.com/c/en/us/products/collateral/storage-networking/mds-9100-series-multilayer-fabric-switches/mds-9148v-fibre-channel-switch-ds.html) · [Smart Zoning](https://www.cisco.com/c/en/us/support/docs/storage-networking/zoning/116390-technote-smartzoning-00.html) · [Ansible nxos_zone_zoneset](https://docs.ansible.com/ansible/6/collections/cisco/nxos/nxos_zone_zoneset_module.html) · [Slow-drain, DIRL (FAQ)](https://www.cisco.com/c/en/us/products/collateral/storage-networking/q-and-a-c67-2437929.html)
+- Brocade: [Peer Zones (SANnav)](https://docs.broadcom.com/htmldocs/SANnav111/SANnav111/v25554625.html) · [NetApp & Brocade quick reference (gói Enterprise)](https://docs.broadcom.com/doc/netapp-and-brocade-product-quick-reference-guide) · [Dell KB: REST API từ FOS 8.2.0](https://www.dell.com/support/kbdoc/en-us/000279356/connectrix-brocade-rest-api-script-zoning-sample) · [NetApp KB: SDDQ](https://kb.netapp.com/onprem/Switches/Brocade/Port_marked_as_Slow_Drain_Device_in_Brocade_switch)
 
 **Cisco:** [MDS 9700 so sánh model](https://www.cisco.com/c/en/us/products/storage-networking/mds-9700-series-multilayer-directors/models-comparison.html) · [Module 48 cổng 64G](https://www.cisco.com/c/en/us/products/collateral/storage-networking/mds-9700-series-multilayer-directors/datasheet-c78-2466559.html) · [9148V](https://www.cisco.com/c/en/us/products/collateral/storage-networking/mds-9100-series-multilayer-fabric-switches/mds-9148v-fibre-channel-switch-ds.html) · [9396V](https://www.cisco.com/c/en/us/products/collateral/storage-networking/mds-9300-series-multilayer-fabric-switches/nb-06-mds-9396v-64-gbps-96-port-fiber-ds-cte-en.html)
